@@ -29,7 +29,7 @@ For complete examples, see [examples/browser/app.ts](./examples/browser/app.ts) 
 
 ```typescript
 import * as tf from '@tensorflow/tfjs'
-import { detectPose, loadYoloModel } from 'yolo-helpers/browser'
+import { detectPose, loadYoloModel } from 'yolo-helpers/dist/browser'
 
 async function main() {
   // Load the YOLO model
@@ -57,7 +57,7 @@ async function main() {
 
 ```typescript
 import * as tf from '@tensorflow/tfjs-node'
-import { detectPose, loadYoloModel } from 'yolo-helpers/node'
+import { detectPose, loadYoloModel } from 'yolo-helpers'
 
 async function main() {
   // Load the YOLO model
