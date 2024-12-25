@@ -9,5 +9,5 @@ dist/
 *.tgz
 .DS_Store
 saved_models/
-test/bundle.js
-test/demo.jpg
+bundle.js
+demo.jpg

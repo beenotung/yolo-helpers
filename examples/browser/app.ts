@@ -1,9 +1,5 @@
 import * as tf from '@tensorflow/tfjs'
-import {
-  checkYoloPoseOutput,
-  decodeYoloPose,
-  predictYoloPose,
-} from '../yolo-pose-utils'
+import { predictYoloPose } from '../../yolo-pose/browser'
 
 declare let app: HTMLElement
 declare let image: HTMLImageElement
@@ -36,6 +32,7 @@ async function main() {
 
   console.log('predicting...')
   let predictions = await predictYoloPose({
+    tf,
     model,
     pixels: image,
     maxOutputSize: 1,

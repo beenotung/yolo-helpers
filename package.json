@@ -11,7 +11,7 @@
     "dist"
   ],
   "scripts": {
-    "dev": "esbuild --watch --bundle --outfile=test/bundle.js test/app.ts",
+    "dev": "esbuild --watch --bundle --outfile=examples/browser/bundle.js examples/browser/app.ts",
     "test": "tsc --noEmit",
     "clean": "rimraf dist",
     "build": "rimraf dist && tsc -p . && rimraf dist/tsconfig.tsbuildinfo",
