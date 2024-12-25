@@ -23,6 +23,8 @@ You can also install `yolo-helpers` with [pnpm](https://pnpm.io/), [yarn](https:
 
 ## Usage Examples
 
+For complete examples, see [examples/browser/app.ts](./examples/browser/app.ts) and [examples/nodejs/test.ts](./examples/nodejs/test.ts)
+
 ### Browser
 
 ```typescript
