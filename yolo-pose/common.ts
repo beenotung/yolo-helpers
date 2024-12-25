@@ -95,8 +95,13 @@ export type DecodePoseArgs = {
   num_keypoints: number
   /** batched predict result, e.g. 1x17x8400 */
   output: number[][][]
-  /** e.g. `1` for only selecting the bounding box with highest confidence */
-  maxOutputSize: number
+  /**
+   * Number of boxes to return using non-max suppression.
+   * If not provided, all boxes will be returned
+   *
+   * e.g. `1` for only selecting the bounding box with highest confidence.
+   */
+  maxOutputSize?: number
   /**
    * the threshold for deciding whether boxes overlap too much with respect to IOU.
    *
@@ -168,15 +173,20 @@ export async function decodePose(args: DecodePoseArgs): Promise<PoseResult> {
       cls_indices.push(cls_index)
     }
 
-    let box_indices_tensor = await tf.image.nonMaxSuppressionAsync(
-      boxes,
-      scores,
-      maxOutputSize,
-      iouThreshold,
-      scoreThreshold,
-    )
-    let box_indices = await box_indices_tensor.array()
-    box_indices_tensor.dispose()
+    let box_indices: number[]
+    if (maxOutputSize) {
+      let box_indices_tensor = await tf.image.nonMaxSuppressionAsync(
+        boxes,
+        scores,
+        maxOutputSize,
+        iouThreshold,
+        scoreThreshold,
+      )
+      box_indices = await box_indices_tensor.array()
+      box_indices_tensor.dispose()
+    } else {
+      box_indices = Array.from({ length: num_boxes }, (_, i) => i)
+    }
 
     let bounding_boxes = []
     for (let box_index of box_indices) {

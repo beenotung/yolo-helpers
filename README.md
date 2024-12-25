@@ -137,7 +137,12 @@ type DetectPoseArgs = {
   num_classes: number
   /** e.g. `17` for 17 keypoints */
   num_keypoints: number
-  /** e.g. `1` for only selecting the bounding box with highest confidence */
+  /**
+   * Number of boxes to return using non-max suppression.
+   * If not provided, all boxes will be returned
+   *
+   * e.g. `1` for only selecting the bounding box with highest confidence.
+   */
   maxOutputSize: number
   /**
    * the threshold for deciding whether boxes overlap too much with respect to IOU.
