@@ -18,7 +18,16 @@
     "tsc": "tsc -p ."
   },
   "peerDependencies": {
-    "@tensorflow/tfjs": "^4.22.0"
+    "@tensorflow/tfjs": "^4.22.0",
+    "@tensorflow/tfjs-node": "^4.22.0"
+  },
+  "peerDependenciesMeta": {
+    "@tensorflow/tfjs-node": {
+      "optional": true
+    },
+    "@tensorflow/tfjs": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
