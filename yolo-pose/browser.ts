@@ -1,19 +1,50 @@
 import * as tf from '@tensorflow/tfjs'
 import {
-  decodeYoloPose,
-  DecodeYoloPoseArgs,
+  decodePose,
+  DecodePoseArgs,
   getModelInputShape,
   preprocessInput,
 } from './common'
 export * from './common'
 
-export type PredictYoloPoseArgs = {
+export async function loadYoloModel(
+  /**
+   * Can be with or without `/model.json`.
+   *
+   * Examples:
+   * - "./saved_model/yolo11n-pose_web_model/model.json"
+   * - "./saved_model/yolo11n-pose_web_model"
+   * - "http://localhost:8100/saved_models/yolo11n-pose_web_model/model.json"
+   * - "https://domain.net/saved_models/yolo11n-pose_web_model"
+   * - "indexeddb://yolo11n-pose_web_model"
+   * */
+  modelUrl: string,
+) {
+  if (!modelUrl.endsWith('/model.json')) {
+    modelUrl = modelUrl + '/model.json'
+  }
+  if (!modelUrl.includes('://')) {
+    let parts = location.pathname.split('/')
+    if (parts.length > 1) {
+      parts.splice(parts.length - 1, 1)
+    }
+    let prefix = location.origin + parts.join('/')
+    if (!modelUrl.startsWith('/')) {
+      modelUrl = '/' + modelUrl
+    }
+    modelUrl = prefix + modelUrl
+  }
+  let model = await tf.loadGraphModel(modelUrl)
+  return model
+}
+
+export type DetectPoseArgs = {
   model: tf.InferenceModel
   input_shape?: {
     width: number
     height: number
   }
-} & Omit<DecodeYoloPoseArgs, 'output'> &
+} & Omit<DecodePoseArgs, 'output'> &
   ImageInput
 
 export type ImageInput =
@@ -39,7 +70,7 @@ export type ImageInput =
  * The x, y, width, height are in pixel unit, NOT normalized in the range of [0, 1].
  * The the pixel units are scaled to the input_shape.
  */
-export async function predictYoloPose(args: PredictYoloPoseArgs) {
+export async function detectPose(args: DetectPoseArgs) {
   let { model } = args
 
   let input_shape = args.input_shape || getModelInputShape(model)
@@ -54,9 +85,8 @@ export async function predictYoloPose(args: PredictYoloPoseArgs) {
   let output = (await result.array()) as number[][][]
   result.dispose()
 
-  let predictions = await decodeYoloPose({
+  return await decodePose({
     ...args,
     output,
   })
-  return predictions
 }

@@ -1,5 +1,5 @@
 import * as tf from '@tensorflow/tfjs'
-import { predictYoloPose } from '../../yolo-pose/browser'
+import { detectPose, loadYoloModel } from '../../yolo-pose/browser'
 
 declare let app: HTMLElement
 declare let image: HTMLImageElement
@@ -19,9 +19,7 @@ let length = 4 + num_classes + num_keypoints * 3
 
 async function main() {
   console.log('loading model...')
-  let model = await tf.loadGraphModel(
-    'saved_models/yolo11n-pose_web_model/model.json',
-  )
+  let model = await loadYoloModel('saved_models/yolo11n-pose_web_model')
   console.log({ model })
 
   console.log('loading image...')
@@ -31,7 +29,7 @@ async function main() {
   })
 
   console.log('predicting...')
-  let predictions = await predictYoloPose({
+  let predictions = await detectPose({
     tf,
     model,
     pixels: image,

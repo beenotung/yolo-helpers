@@ -1,7 +1,7 @@
 import type { InferenceModel, Tensor } from '@tensorflow/tfjs'
 import type * as tf_type from '@tensorflow/tfjs'
 
-export function checkYoloPoseOutput(args: {
+export function checkPoseOutput(args: {
   input_shape: { width: number; height: number }
   /** e.g. `1` for single class */
   num_classes: number
@@ -76,9 +76,9 @@ export type BoundingBoxWithKeypoints = BoundingBox & {
 }
 
 /** output shape: [batch, num_boxes] */
-export type YoloPoseResult = BoundingBoxWithKeypoints[][]
+export type PoseResult = BoundingBoxWithKeypoints[][]
 
-export type DecodeYoloPoseArgs = {
+export type DecodePoseArgs = {
   /**
    * tensorflow runtime:
    * - browser: `import * as tf from '@tensorflow/tfjs'`
@@ -99,9 +99,7 @@ export type DecodeYoloPoseArgs = {
   scoreThreshold?: number
 }
 
-export async function decodeYoloPose(
-  args: DecodeYoloPoseArgs,
-): Promise<YoloPoseResult> {
+export async function decodePose(args: DecodePoseArgs): Promise<PoseResult> {
   let {
     tf,
     num_classes,
@@ -125,7 +123,7 @@ export async function decodeYoloPose(
 
   let num_boxes = batches[0][0].length
 
-  let result: YoloPoseResult = []
+  let result: PoseResult = []
   for (let batch of batches) {
     // e.g. 17x8400
 

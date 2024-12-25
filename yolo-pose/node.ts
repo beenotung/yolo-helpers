@@ -1,20 +1,43 @@
 import * as tf from '@tensorflow/tfjs-node'
 import {
-  decodeYoloPose,
-  DecodeYoloPoseArgs,
+  decodePose,
+  DecodePoseArgs,
   getModelInputShape,
   preprocessInput,
 } from './common'
 import { readFile } from 'fs/promises'
 export * from './common'
 
-export type PredictYoloPoseArgs = {
+export async function loadYoloModel(
+  /**
+   * Can be with or without `/model.json`.
+   *
+   * Examples:
+   * - "./saved_model/yolo11n-pose_web_model/model.json"
+   * - "./saved_model/yolo11n-pose_web_model"
+   * - "file://path/to/model.json"
+   * - "http://localhost:8100/saved_models/yolo11n-pose_web_model"
+   * - "https://domain.net/saved_models/yolo11n-pose_web_model/model.json"
+   * */
+  modelUrl: string,
+) {
+  if (!modelUrl.endsWith('/model.json')) {
+    modelUrl = modelUrl + '/model.json'
+  }
+  if (!modelUrl.includes('://')) {
+    modelUrl = 'file://' + modelUrl
+  }
+  let model = await tf.loadGraphModel(modelUrl)
+  return model
+}
+
+export type DetectPoseArgs = {
   model: tf.InferenceModel
   input_shape?: {
     width: number
     height: number
   }
-} & Omit<DecodeYoloPoseArgs, 'output'> &
+} & Omit<DecodePoseArgs, 'output'> &
   ImageInput
 
 export type ImageInput =
@@ -40,7 +63,7 @@ export type ImageInput =
  * The x, y, width, height are in pixel unit, NOT normalized in the range of [0, 1].
  * The the pixel units are scaled to the input_shape.
  */
-export async function predictYoloPose(args: PredictYoloPoseArgs) {
+export async function detectPose(args: DetectPoseArgs) {
   let { model } = args
 
   let input_shape = args.input_shape || getModelInputShape(model)
@@ -56,9 +79,8 @@ export async function predictYoloPose(args: PredictYoloPoseArgs) {
   let output = (await result.array()) as number[][][]
   result.dispose()
 
-  let predictions = await decodeYoloPose({
+  return await decodePose({
     ...args,
     output,
   })
-  return predictions
 }
