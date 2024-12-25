@@ -1,12 +1,27 @@
 {
   "name": "yolo-helpers",
   "version": "0.0.0",
-  "description": "",
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "description": "Helper functions to use models converted from YOLO in browser and Node.js",
+  "keywords": [
+    "yolo",
+    "tensorflow",
+    "machine-learning",
+    "object-detection",
+    "pose-detection",
+    "browser",
+    "nodejs",
+    "isomorphic",
+    "typescript"
+  ],
+  "author": {
+    "name": "Beeno Tung",
+    "email": "aabbcc1241@yahoo.com.hk",
+    "url": "https://beeno-tung.surge.sh"
+  },
+  "license": "BSD-2-Clause",
+  "main": "dist/node.js",
+  "types": "dist/node.d.ts",
+  "browser": "dist/browser.js",
   "files": [
     "dist"
   ],
@@ -17,6 +32,7 @@
     "build": "rimraf dist && tsc -p . && rimraf dist/tsconfig.tsbuildinfo",
     "tsc": "tsc -p ."
   },
+  "dependencies": {},
   "peerDependencies": {
     "@tensorflow/tfjs": "^4.22.0",
     "@tensorflow/tfjs-node": "^4.22.0"
