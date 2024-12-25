@@ -176,11 +176,11 @@ export async function decodePose(args: DecodePoseArgs): Promise<PoseResult> {
       let y = batch[1][box_index]
       let width = batch[2][box_index]
       let height = batch[3][box_index]
-      let cls_index = cls_indices[box_index]
-      let cls_score = batch[4 + cls_index][box_index]
-      let all_scores = []
+      let class_index = cls_indices[box_index]
+      let confidence = batch[4 + class_index][box_index]
+      let all_confidences = []
       for (let i = 0; i < num_classes; i++) {
-        all_scores.push(batch[4 + i][box_index])
+        all_confidences.push(batch[4 + i][box_index])
       }
       let keypoints = []
       for (let offset = 4 + num_classes; offset + 2 < length; offset += 3) {
@@ -194,9 +194,9 @@ export async function decodePose(args: DecodePoseArgs): Promise<PoseResult> {
         y,
         width,
         height,
-        cls_index,
-        cls_score,
-        all_scores,
+        class_index,
+        confidence,
+        all_confidences,
         keypoints,
       })
     }
