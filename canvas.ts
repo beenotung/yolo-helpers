@@ -1,4 +1,4 @@
-export function drawBox(args: {
+export type DrawBoxArgs = {
   /** canvas context to draw on */
   context: CanvasRenderingContext2D
 
@@ -30,7 +30,9 @@ export function drawBox(args: {
     /** font style of the text label, default is `'normal 900 14px Arial, sans-serif'` */
     font?: string
   }
-}) {
+}
+
+export function drawBox(args: DrawBoxArgs) {
   let { context, label } = args
 
   let lineWidth = args.lineWidth ?? 5

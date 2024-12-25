@@ -83,7 +83,7 @@ async function main() {
 ### Common Types
 
 ```typescript
-export type BoundingBox = {
+type BoundingBox = {
   /** center x of bounding box in px */
   x: number
   /** center y of bounding box in px */
@@ -100,7 +100,7 @@ export type BoundingBox = {
   all_confidences: number[]
 }
 
-export type Keypoint = {
+type Keypoint = {
   /** x of keypoint in px */
   x: number
   /** y of keypoint in px */
@@ -109,7 +109,7 @@ export type Keypoint = {
   visibility: number
 }
 
-export type BoundingBoxWithKeypoints = BoundingBox & {
+type BoundingBoxWithKeypoints = BoundingBox & {
   keypoints: Keypoint[]
 }
 
@@ -118,7 +118,40 @@ export type BoundingBoxWithKeypoints = BoundingBox & {
  *
  * Array of batches, each containing array of detected bounding boxes
  * */
-export type PoseResult = BoundingBoxWithKeypoints[][]
+type PoseResult = BoundingBoxWithKeypoints[][]
+
+type DetectPoseArgs = {
+  model: tf.InferenceModel
+  /** used for image resize when necessary, auto inferred from model shape */
+  input_shape?: {
+    width: number
+    height: number
+  }
+  /**
+   * tensorflow runtime:
+   * - browser: `import * as tf from '@tensorflow/tfjs'`
+   * - nodejs: `import * as tf from '@tensorflow/tfjs-node'`
+   */
+  tf: typeof tf_type
+  /** e.g. `1` for single class */
+  num_classes: number
+  /** e.g. `17` for 17 keypoints */
+  num_keypoints: number
+  /** e.g. `1` for only selecting the bounding box with highest confidence */
+  maxOutputSize: number
+  /**
+   * the threshold for deciding whether boxes overlap too much with respect to IOU.
+   *
+   * default: `0.5`
+   */
+  iouThreshold?: number
+  /**
+   * the threshold for deciding whether a box is a valid detection.
+   *
+   * default: `-Infinity`
+   */
+  scoreThreshold?: number
+}
 ```
 
 ### Browser Functions
@@ -139,24 +172,26 @@ function loadYoloModel(
 ): Promise<tf.InferenceModel>
 
 // Detect poses in browser
-type DetectPoseArgs = {
-  model: tf.InferenceModel
-  input_shape?: {
-    width: number
-    height: number
-  }
-  tf: typeof tf_type
-  num_classes: number
-  num_keypoints: number
-  maxOutputSize: number
-  iouThreshold?: number
-  scoreThreshold?: number
-} & (
-  | { pixels: Parameters<typeof tf.browser.fromPixels>[0] } // HTML elements like Image, Canvas, Video
-  | { tensor: tf.Tensor }
-)
+function detectPose(args: DetectPoseArgs & ImageInput): Promise<PoseResult>
 
-function detectPose(args: DetectPoseArgs): Promise<PoseResult>
+type ImageInput =
+  | {
+      pixels:
+        | PixelData
+        | ImageData
+        | HTMLImageElement
+        | HTMLCanvasElement
+        | HTMLVideoElement
+        | ImageBitmap
+    }
+  | {
+      /**
+       * input shape: [height, width, channels] or [batch, height, width, channels]
+       *
+       * the pixel values should be in the range of [0, 255]
+       */
+      tensor: tf.Tensor
+    }
 
 function drawBox(args: {
   /** canvas context to draw on */
@@ -211,24 +246,21 @@ function loadYoloModel(
 ): Promise<tf.InferenceModel>
 
 // Detect poses in Node.js
-type DetectPoseArgs = {
-  model: tf.InferenceModel
-  input_shape?: {
-    width: number
-    height: number
-  }
-  tf: typeof tf_type
-  num_classes: number
-  num_keypoints: number
-  maxOutputSize: number
-  iouThreshold?: number
-  scoreThreshold?: number
-} & (
-  | { file: string } // File path to image
-  | { tensor: tf.Tensor }
-)
+function detectPose(args: DetectPoseArgs & ImageInput): Promise<PoseResult>
 
-function detectPose(args: DetectPoseArgs): Promise<PoseResult>
+type ImageInput =
+  | {
+      /** path to image file */
+      file: string
+    }
+  | {
+      /**
+       * input shape: [height, width, channels] or [batch, height, width, channels]
+       *
+       * the pixel values should be in the range of [0, 255]
+       */
+      tensor: tf.Tensor
+    }
 ```
 
 ## License

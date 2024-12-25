@@ -33,6 +33,7 @@ export async function loadYoloModel(
 
 export type DetectPoseArgs = {
   model: tf.InferenceModel
+  /** used for image resize when necessary, auto inferred from model shape */
   input_shape?: {
     width: number
     height: number
@@ -41,7 +42,10 @@ export type DetectPoseArgs = {
   ImageInput
 
 export type ImageInput =
-  | { file: string }
+  | {
+      /** path to image file */
+      file: string
+    }
   | {
       /**
        * input shape: [height, width, channels] or [batch, height, width, channels]

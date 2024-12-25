@@ -97,9 +97,17 @@ export type DecodePoseArgs = {
   output: number[][][]
   /** e.g. `1` for only selecting the bounding box with highest confidence */
   maxOutputSize: number
-  /** default: `0.5` */
+  /**
+   * the threshold for deciding whether boxes overlap too much with respect to IOU.
+   *
+   * default: `0.5`
+   */
   iouThreshold?: number
-  /** default: `-Infinity` */
+  /**
+   * the threshold for deciding whether a box is a valid detection.
+   *
+   * default: `-Infinity`
+   */
   scoreThreshold?: number
 }
 
