@@ -1,5 +1,5 @@
 import * as tf from '@tensorflow/tfjs'
-import { detectPose, loadYoloModel } from '../../yolo-pose/browser'
+import { detectPose, loadYoloModel, drawBox } from '../../browser'
 
 declare let app: HTMLElement
 declare let image: HTMLImageElement
@@ -51,22 +51,32 @@ async function main() {
   context.clearRect(0, 0, canvas.width, canvas.height)
   for (let prediction of predictions) {
     for (let box of prediction) {
-      drawRect({
+      drawBox({
+        context,
         x: box.x,
         y: box.y,
         width: box.width,
         height: box.height,
-        color: 'red',
-        text: box.confidence.toFixed(2),
+        borderColor: 'red',
+        label: {
+          text: box.confidence.toFixed(2),
+          fontColor: 'cyan',
+          backgroundColor: '#0005',
+        },
       })
       for (let keypoint of box.keypoints) {
-        drawRect({
+        drawBox({
+          context,
           x: keypoint.x,
           y: keypoint.y,
           width: 3,
           height: 3,
-          color: 'cyan',
-          text: keypoint.visibility.toFixed(2),
+          borderColor: 'red',
+          label: {
+            text: keypoint.visibility.toFixed(2),
+            fontColor: 'cyan',
+            backgroundColor: '#0005',
+          },
         })
       }
     }
@@ -76,25 +86,3 @@ async function main() {
 }
 
 main().catch(e => console.error(e))
-
-function drawRect(input: {
-  x: number
-  y: number
-  width: number
-  height: number
-  color: string
-  text: string
-  lineWidth?: number
-}) {
-  let lineWidth = input.lineWidth ?? 5
-
-  let left = input.x - input.width / 2
-  let top = input.y - input.height / 2
-
-  context.lineWidth = lineWidth
-  context.strokeStyle = input.color
-  context.strokeRect(left, top, input.width, input.height)
-
-  context.font = '12px Arial'
-  context.fillText(input.text, left, top > 5 ? top - 5 : top + lineWidth)
-}

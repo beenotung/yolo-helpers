@@ -1,5 +1,5 @@
 import * as tf from '@tensorflow/tfjs-node'
-import { detectPose, loadYoloModel } from '../../yolo-pose/node'
+import { detectPose, loadYoloModel } from '../../node'
 import { resolve } from 'path'
 
 async function main() {

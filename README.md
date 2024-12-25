@@ -157,6 +157,40 @@ type DetectPoseArgs = {
 )
 
 function detectPose(args: DetectPoseArgs): Promise<PoseResult>
+
+function drawBox(args: {
+  /** canvas context to draw on */
+  context: CanvasRenderingContext2D
+
+  /** x-axis of the center of the box, in pixel unit */
+  x: number
+
+  /** y-axis of the center of the box, in pixel unit */
+  y: number
+
+  /** width of the box, in pixel unit */
+  width: number
+
+  /** height of the box, in pixel unit */
+  height: number
+
+  /** color of the border of the box, default is `red` */
+  borderColor?: string
+
+  /** line width of the box, in pixel unit, default is 5px */
+  lineWidth?: number
+
+  /** label of the box, e.g. class name, confidence score, etc. */
+  label?: {
+    text: string
+    /** color of the text label, default is `'white'` */
+    fontColor?: string
+    /** background color of the text label, default is `'transparent'` */
+    backgroundColor?: string
+    /** font style of the text label, default is `'normal 900 14px Arial, sans-serif'` */
+    font?: string
+  }
+}): void
 ```
 
 ### Node.js Functions
