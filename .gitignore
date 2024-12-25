@@ -1,0 +1,13 @@
+node_modules/
+dist/
+*-lock.json
+*-lock.yaml
+*.lock
+.*-debug.log
+*.tsbuildinfo
+.env
+*.tgz
+.DS_Store
+saved_models/
+test/bundle.js
+test/demo.jpg
