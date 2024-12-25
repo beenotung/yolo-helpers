@@ -57,7 +57,7 @@ async function main() {
         width: box.width,
         height: box.height,
         color: 'red',
-        text: box.cls_score.toFixed(2),
+        text: box.confidence.toFixed(2),
       })
       for (let keypoint of box.keypoints) {
         drawRect({

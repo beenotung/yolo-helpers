@@ -56,12 +56,12 @@ export type BoundingBox = {
   width: number
   /** height of bounding box in px */
   height: number
-  /** class index with highest score */
-  cls_index: number
-  /** score of the class with highest score */
-  cls_score: number
-  /** score of all classes */
-  all_scores: number[]
+  /** class index with highest confidence */
+  class_index: number
+  /** confidence of the class with highest confidence */
+  confidence: number
+  /** confidence of all classes */
+  all_confidences: number[]
 }
 export type Keypoint = {
   /** x of keypoint in px */
@@ -75,7 +75,11 @@ export type BoundingBoxWithKeypoints = BoundingBox & {
   keypoints: Keypoint[]
 }
 
-/** output shape: [batch, num_boxes] */
+/**
+ * output shape: [batch, box]
+ *
+ * Array of batches, each containing array of detected bounding boxes
+ * */
 export type PoseResult = BoundingBoxWithKeypoints[][]
 
 export type DecodePoseArgs = {

@@ -19,15 +19,15 @@ export async function loadYoloModel(
    * - "http://localhost:8100/saved_models/yolo11n-pose_web_model"
    * - "https://domain.net/saved_models/yolo11n-pose_web_model/model.json"
    * */
-  modelUrl: string,
+  modelPath: string,
 ) {
-  if (!modelUrl.endsWith('/model.json')) {
-    modelUrl = modelUrl + '/model.json'
+  if (!modelPath.endsWith('/model.json')) {
+    modelPath = modelPath + '/model.json'
   }
-  if (!modelUrl.includes('://')) {
-    modelUrl = 'file://' + modelUrl
+  if (!modelPath.includes('://')) {
+    modelPath = 'file://' + modelPath
   }
-  let model = await tf.loadGraphModel(modelUrl)
+  let model = await tf.loadGraphModel(modelPath)
   return model
 }
 
