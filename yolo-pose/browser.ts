@@ -2,7 +2,9 @@ import * as tf from '@tensorflow/tfjs'
 import {
   decodePose,
   DecodePoseArgs,
+  decodePoseSync,
   getModelInputShape,
+  PoseResult,
   preprocessInput,
 } from './common'
 export * from './common'
@@ -71,7 +73,7 @@ export type ImageInput =
  * The x, y, width, height are in pixel unit, NOT normalized in the range of [0, 1].
  * The the pixel units are scaled to the input_shape.
  */
-export async function detectPose(args: DetectPoseArgs) {
+export async function detectPose(args: DetectPoseArgs): Promise<PoseResult> {
   let { model } = args
 
   let input_shape = args.input_shape || getModelInputShape(model)
@@ -87,6 +89,28 @@ export async function detectPose(args: DetectPoseArgs) {
   result.dispose()
 
   return await decodePose({
+    ...args,
+    output,
+  })
+}
+
+/**
+ * Sync version of `detectPose`.
+ */
+export function detectPoseSync(args: DetectPoseArgs): PoseResult {
+  let { model } = args
+
+  let input_shape = args.input_shape || getModelInputShape(model)
+
+  let output = tf.tidy(() => {
+    let input =
+      'tensor' in args ? args.tensor : tf.browser.fromPixels(args.pixels)
+    input = preprocessInput(input, input_shape)
+    let result = model.predict(input, {}) as tf.Tensor
+    return result.arraySync() as number[][][]
+  })
+
+  return decodePoseSync({
     ...args,
     output,
   })

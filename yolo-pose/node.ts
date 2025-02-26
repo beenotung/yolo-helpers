@@ -2,10 +2,12 @@ import * as tf from '@tensorflow/tfjs-node'
 import {
   decodePose,
   DecodePoseArgs,
+  decodePoseSync,
   getModelInputShape,
   preprocessInput,
 } from './common'
 import { readFile } from 'fs/promises'
+import { readFileSync } from 'fs'
 export * from './common'
 
 export async function loadYoloModel(
@@ -84,6 +86,29 @@ export async function detectPose(args: DetectPoseArgs) {
   result.dispose()
 
   return await decodePose({
+    ...args,
+    output,
+  })
+}
+
+/**
+ * Sync version of `detectPose`.
+ */
+export function detectPoseSync(args: DetectPoseArgs) {
+  let { model } = args
+
+  let input_shape = args.input_shape || getModelInputShape(model)
+
+  let buffer = 'file' in args ? readFileSync(args.file) : null
+
+  let output = tf.tidy(() => {
+    let input = 'tensor' in args ? args.tensor : tf.node.decodeImage(buffer!)
+    input = preprocessInput(input, input_shape)
+    let result = model.predict(input, {}) as tf.Tensor
+    return result.arraySync() as number[][][]
+  })
+
+  return decodePoseSync({
     ...args,
     output,
   })

@@ -78,6 +78,12 @@ async function main() {
 }
 ```
 
+### Remark
+
+Sync version of `detectPose` is available as `detectPoseSync` but it is not recommended.
+
+The sync version is slower than the async version even when running in the browser/nodejs without other concurrent tasks.
+
 ## Typescript Signature
 
 ### Common Types

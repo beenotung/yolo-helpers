@@ -223,6 +223,118 @@ export async function decodePose(args: DecodePoseArgs): Promise<PoseResult> {
   return result
 }
 
+/**
+ * Sync version of `decodePose`.
+ */
+export function decodePoseSync(args: DecodePoseArgs): PoseResult {
+  let {
+    tf,
+    num_classes,
+    num_keypoints,
+    maxOutputSize,
+    iouThreshold,
+    scoreThreshold,
+  } = args
+  let length = 4 + num_classes + num_keypoints * 3
+
+  // e.g. 1x17x8400
+  let batches = args.output
+
+  if (batches[0].length === 0) {
+    // no a single batch
+    return []
+  }
+  if (batches[0].length !== length) {
+    throw new Error('data[0].length must be ' + length)
+  }
+
+  let num_boxes = batches[0][0].length
+
+  let result: PoseResult = []
+  for (let batch of batches) {
+    // e.g. 17x8400
+
+    let boxes: [x1: number, y1: number, x2: number, y2: number][] = []
+    let scores: number[] = []
+    let cls_indices: number[] = []
+    for (let box_index = 0; box_index < num_boxes; box_index++) {
+      let x = batch[0][box_index]
+      let y = batch[1][box_index]
+      let width = batch[2][box_index]
+      let height = batch[3][box_index]
+
+      let x1 = x - width / 2
+      let y1 = y - height / 2
+      let x2 = x + width / 2
+      let y2 = y + height / 2
+
+      let box_score = batch[4][box_index]
+      let cls_index = 0
+      for (let i = 1; i < num_classes; i++) {
+        let cls_score = batch[4 + i][i]
+        if (cls_score > box_score) {
+          box_score = cls_score
+          cls_index = i
+        }
+      }
+
+      boxes.push([x1, y1, x2, y2])
+      scores.push(box_score)
+      cls_indices.push(cls_index)
+    }
+
+    let box_indices: number[]
+    if (maxOutputSize) {
+      box_indices = tf.tidy(() =>
+        tf.image
+          .nonMaxSuppression(
+            boxes,
+            scores,
+            maxOutputSize,
+            iouThreshold,
+            scoreThreshold,
+          )
+          .arraySync(),
+      )
+    } else {
+      box_indices = Array.from({ length: num_boxes }, (_, i) => i)
+    }
+
+    let bounding_boxes = []
+    for (let box_index of box_indices) {
+      let x = batch[0][box_index]
+      let y = batch[1][box_index]
+      let width = batch[2][box_index]
+      let height = batch[3][box_index]
+      let class_index = cls_indices[box_index]
+      let confidence = batch[4 + class_index][box_index]
+      let all_confidences = []
+      for (let i = 0; i < num_classes; i++) {
+        all_confidences.push(batch[4 + i][box_index])
+      }
+      let keypoints = []
+      for (let offset = 4 + num_classes; offset + 2 < length; offset += 3) {
+        let x = batch[offset + 0][box_index]
+        let y = batch[offset + 1][box_index]
+        let visibility = batch[offset + 2][box_index]
+        keypoints.push({ x, y, visibility })
+      }
+      bounding_boxes.push({
+        x,
+        y,
+        width,
+        height,
+        class_index,
+        confidence,
+        all_confidences,
+        keypoints,
+      })
+    }
+    result.push(bounding_boxes)
+  }
+  return result
+}
+
 export function getModelInputShape(model: InferenceModel) {
   if (model.inputs.length !== 1) {
     throw new Error(

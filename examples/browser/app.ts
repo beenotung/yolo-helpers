@@ -1,5 +1,10 @@
 import * as tf from '@tensorflow/tfjs'
-import { detectPose, loadYoloModel, drawBox } from '../../browser'
+import {
+  detectPose,
+  loadYoloModel,
+  drawBox,
+  detectPoseSync,
+} from '../../browser'
 
 declare let app: HTMLElement
 declare let image: HTMLImageElement
@@ -27,6 +32,20 @@ async function main() {
     image.src = 'demo.jpg'
     image.onload = resolve
   })
+
+  console.log('warn up...')
+  for (let i = 0; i < 10; i++) {
+    console.time('detectPose')
+    await detectPose({
+      tf,
+      model,
+      pixels: image,
+      maxOutputSize: 1,
+      num_classes,
+      num_keypoints,
+    })
+    console.timeEnd('detectPose')
+  }
 
   console.log('predicting...')
   let predictions = await detectPose({

@@ -1,5 +1,5 @@
 import * as tf from '@tensorflow/tfjs-node'
-import { detectPose, loadYoloModel } from '../../node'
+import { detectPose, detectPoseSync, loadYoloModel } from '../../node'
 import { resolve } from 'path'
 
 async function main() {
@@ -7,6 +7,22 @@ async function main() {
   let model = await loadYoloModel(
     '../browser/saved_models/yolo11n-pose_web_model',
   )
+  let run_speed_test = false
+  if (run_speed_test) {
+    for (let i = 0; i < 10; i++) {
+      console.time('detectPose')
+      await detectPose({
+        tf,
+        file,
+        model,
+        maxOutputSize: 1,
+        num_classes: 1,
+        num_keypoints: 17,
+      })
+      console.timeEnd('detectPose')
+    }
+    return
+  }
   let predictions = await detectPose({
     tf,
     file,
