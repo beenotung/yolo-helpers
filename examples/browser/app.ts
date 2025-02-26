@@ -33,8 +33,10 @@ async function main() {
     image.onload = resolve
   })
 
-  console.log('warn up...')
-  for (let i = 0; i < 10; i++) {
+  console.log('warm up...')
+  let warm_up_rounds = 10
+  warm_up_rounds = 0
+  for (let i = 0; i < warm_up_rounds; i++) {
     console.time('detectPose')
     await detectPose({
       tf,
