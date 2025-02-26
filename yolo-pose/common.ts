@@ -360,14 +360,6 @@ export function preprocessInput(
   input: Tensor,
   input_shape: { height: number; width: number },
 ) {
-  // normalize to 0..1
-  input = input.div(255.0)
-
-  // expand batch dimension if input is 2D
-  if (input.rank === 3) {
-    input = input.expandDims()
-  }
-
   // resize input to input_shape if necessary
   let input_height = input.shape[1]
   let input_width = input.shape[2]
@@ -377,6 +369,14 @@ export function preprocessInput(
   ) {
     input = input.resizeBilinear([input_shape.width, input_shape.height])
   }
+
+  // expand batch dimension if input is 2D
+  if (input.rank === 3) {
+    input = input.expandDims()
+  }
+
+  // normalize to 0..1
+  input = input.div(255.0)
 
   return input
 }
