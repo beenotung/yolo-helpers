@@ -367,7 +367,7 @@ export function preprocessInput(
     input_width !== input_shape.width ||
     input_height !== input_shape.height
   ) {
-    input = input.resizeBilinear([input_shape.width, input_shape.height])
+    input = input.resizeBilinear([input_shape.height, input_shape.width])
   }
 
   // expand batch dimension if input is 2D
