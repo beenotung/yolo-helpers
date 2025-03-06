@@ -19,13 +19,34 @@
         width: 640px;
         height: 640px;
       }
+      label {
+        display: block;
+        margin-bottom: 0.5rem;
+      }
     </style>
   </head>
   <body>
+    <label>
+      Annotation Opacity:
+      <input
+        id="opacity"
+        type="range"
+        min="0"
+        max="100"
+        step="1"
+        oninput="updateOpacity()"
+      />
+    </label>
     <div id="app">
       <img id="image" />
       <canvas id="canvas"></canvas>
     </div>
+    <script>
+      function updateOpacity() {
+        canvas.style.opacity = opacity.valueAsNumber / 100
+      }
+      updateOpacity()
+    </script>
     <script src="bundle.js"></script>
   </body>
 </html>

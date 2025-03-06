@@ -1,27 +1,23 @@
 import type * as tf_type from '@tensorflow/tfjs'
-import { BoundingBox } from '../yolo-box/common'
 
-export function checkPoseOutput(args: {
+export function checkBoxOutput(args: {
   input_shape: { width: number; height: number }
-  /** e.g. `1` for single class */
+  /** e.g. `1` for single class, 80 for yolo base model 80 classes */
   num_classes: number
-  /** e.g. `17` for 17 keypoints */
-  num_keypoints: number
-  /** [batch, features, boxes] e.g. 1x56x8400 */
+  /** [batch, features, boxes] e.g. 1x84x8400 */
   output: number[][][]
 }) {
   let {
     input_shape: { width, height },
     num_classes,
-    num_keypoints,
   } = args
-  let length = 4 + num_classes + num_keypoints * 3
+  let length = 4 + num_classes
   let num_boxes =
     (width / 8) * (height / 8) +
     (width / 16) * (height / 16) +
     (width / 32) * (height / 32)
 
-  // e.g. 1x56x8400
+  // e.g. 1x17x8400
   let batches = args.output
   if (!Array.isArray(batches)) {
     throw new Error('data must be 3D array')
@@ -47,26 +43,31 @@ export function checkPoseOutput(args: {
   }
 }
 
-export type Keypoint = {
-  /** x of keypoint in px */
+export type BoundingBox = {
+  /** center x of bounding box in px */
   x: number
-  /** y of keypoint in px */
+  /** center y of bounding box in px */
   y: number
-  /** confidence of keypoint */
-  visibility: number
-}
-export type BoundingBoxWithKeypoints = BoundingBox & {
-  keypoints: Keypoint[]
+  /** width of bounding box in px */
+  width: number
+  /** height of bounding box in px */
+  height: number
+  /** class index with highest confidence */
+  class_index: number
+  /** confidence of the class with highest confidence */
+  confidence: number
+  /** confidence of all classes */
+  all_confidences: number[]
 }
 
 /**
  * output shape: [batch, box]
  *
- * Array of batches, each containing array of detected bounding boxes with keypoints
+ * Array of batches, each containing array of detected bounding boxes
  * */
-export type PoseResult = BoundingBoxWithKeypoints[][]
+export type BoxResult = BoundingBox[][]
 
-export type DecodePoseArgs = {
+export type DecodeBoxArgs = {
   /**
    * tensorflow runtime:
    * - browser: `import * as tf from '@tensorflow/tfjs'`
@@ -75,9 +76,7 @@ export type DecodePoseArgs = {
   tf: typeof tf_type
   /** e.g. `1` for single class */
   num_classes: number
-  /** e.g. `17` for 17 keypoints */
-  num_keypoints: number
-  /** batched predict result, e.g. 1x17x8400 */
+  /** batched predict result, e.g. 1x84x8400 */
   output: number[][][]
   /**
    * Number of boxes to return using non-max suppression.
@@ -100,19 +99,11 @@ export type DecodePoseArgs = {
   scoreThreshold?: number
 }
 
-export async function decodePose(args: DecodePoseArgs): Promise<PoseResult> {
-  let {
-    tf,
-    num_classes,
-    num_keypoints,
-    maxOutputSize,
-    iouThreshold,
-    scoreThreshold,
-  } = args
-  // TODO allow customize w/wo visibility for keypoints
-  let length = 4 + num_classes + num_keypoints * 3
+export async function decodeBox(args: DecodeBoxArgs): Promise<BoxResult> {
+  let { tf, num_classes, maxOutputSize, iouThreshold, scoreThreshold } = args
+  let length = 4 + num_classes
 
-  // e.g. 1x17x8400
+  // e.g. 1x84x8400
   let batches = args.output
 
   if (batches[0].length === 0) {
@@ -125,9 +116,9 @@ export async function decodePose(args: DecodePoseArgs): Promise<PoseResult> {
 
   let num_boxes = batches[0][0].length
 
-  let result: PoseResult = []
+  let result: BoxResult = []
   for (let batch of batches) {
-    // e.g. 17x8400
+    // e.g. 84x8400
 
     let boxes: [x1: number, y1: number, x2: number, y2: number][] = []
     let scores: number[] = []
@@ -173,7 +164,7 @@ export async function decodePose(args: DecodePoseArgs): Promise<PoseResult> {
       box_indices = Array.from({ length: num_boxes }, (_, i) => i)
     }
 
-    let bounding_boxes: BoundingBoxWithKeypoints[] = []
+    let bounding_boxes: BoundingBox[] = []
     for (let box_index of box_indices) {
       let x = batch[0][box_index]
       let y = batch[1][box_index]
@@ -185,13 +176,6 @@ export async function decodePose(args: DecodePoseArgs): Promise<PoseResult> {
       for (let i = 0; i < num_classes; i++) {
         all_confidences[i] = batch[4 + i][box_index]
       }
-      let keypoints: Keypoint[] = []
-      for (let offset = 4 + num_classes; offset + 2 < length; offset += 3) {
-        let x = batch[offset + 0][box_index]
-        let y = batch[offset + 1][box_index]
-        let visibility = batch[offset + 2][box_index]
-        keypoints.push({ x, y, visibility })
-      }
       bounding_boxes.push({
         x,
         y,
@@ -200,7 +184,6 @@ export async function decodePose(args: DecodePoseArgs): Promise<PoseResult> {
         class_index,
         confidence,
         all_confidences,
-        keypoints,
       })
     }
     result.push(bounding_boxes)
@@ -209,20 +192,13 @@ export async function decodePose(args: DecodePoseArgs): Promise<PoseResult> {
 }
 
 /**
- * Sync version of `decodePose`.
+ * Sync version of `decodeBox`.
  */
-export function decodePoseSync(args: DecodePoseArgs): PoseResult {
-  let {
-    tf,
-    num_classes,
-    num_keypoints,
-    maxOutputSize,
-    iouThreshold,
-    scoreThreshold,
-  } = args
-  let length = 4 + num_classes + num_keypoints * 3
+export function decodeBoxSync(args: DecodeBoxArgs): BoxResult {
+  let { tf, num_classes, maxOutputSize, iouThreshold, scoreThreshold } = args
+  let length = 4 + num_classes
 
-  // e.g. 1x17x8400
+  // e.g. 1x84x8400
   let batches = args.output
 
   if (batches[0].length === 0) {
@@ -235,9 +211,9 @@ export function decodePoseSync(args: DecodePoseArgs): PoseResult {
 
   let num_boxes = batches[0][0].length
 
-  let result: PoseResult = []
+  let result: BoxResult = []
   for (let batch of batches) {
-    // e.g. 17x8400
+    // e.g. 84x8400
 
     let boxes: [x1: number, y1: number, x2: number, y2: number][] = []
     let scores: number[] = []
@@ -285,7 +261,7 @@ export function decodePoseSync(args: DecodePoseArgs): PoseResult {
       box_indices = Array.from({ length: num_boxes }, (_, i) => i)
     }
 
-    let bounding_boxes: BoundingBoxWithKeypoints[] = []
+    let bounding_boxes: BoundingBox[] = []
     for (let box_index of box_indices) {
       let x = batch[0][box_index]
       let y = batch[1][box_index]
@@ -297,13 +273,6 @@ export function decodePoseSync(args: DecodePoseArgs): PoseResult {
       for (let i = 0; i < num_classes; i++) {
         all_confidences[i] = batch[4 + i][box_index]
       }
-      let keypoints: Keypoint[] = []
-      for (let offset = 4 + num_classes; offset + 2 < length; offset += 3) {
-        let x = batch[offset + 0][box_index]
-        let y = batch[offset + 1][box_index]
-        let visibility = batch[offset + 2][box_index]
-        keypoints.push({ x, y, visibility })
-      }
       bounding_boxes.push({
         x,
         y,
@@ -312,7 +281,6 @@ export function decodePoseSync(args: DecodePoseArgs): PoseResult {
         class_index,
         confidence,
         all_confidences,
-        keypoints,
       })
     }
     result.push(bounding_boxes)
