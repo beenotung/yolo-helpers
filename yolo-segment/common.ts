@@ -1,52 +1,6 @@
 import type * as tf_type from '@tensorflow/tfjs'
 import { BoundingBox } from '../yolo-box/common'
 
-export function checkSegmentOutput(args: {
-  input_shape: { width: number; height: number }
-  /** e.g. `1` for single class */
-  num_classes: number
-  /** e.g. `17` for 17 keypoints */
-  num_keypoints: number
-  /** [batch, features, boxes] e.g. 1x56x8400 */
-  output: number[][][]
-}) {
-  let {
-    input_shape: { width, height },
-    num_classes,
-    num_keypoints,
-  } = args
-  let length = 4 + num_classes + num_keypoints * 3
-  let num_boxes =
-    (width / 8) * (height / 8) +
-    (width / 16) * (height / 16) +
-    (width / 32) * (height / 32)
-
-  // e.g. 1x56x8400
-  let batches = args.output
-  if (!Array.isArray(batches)) {
-    throw new Error('data must be 3D array')
-  }
-  if (batches[0].length === 0) {
-    throw new Error('no a single batch')
-  }
-  if (!Array.isArray(batches[0])) {
-    throw new Error('data must be 3D array')
-  }
-  if (batches[0].length !== length) {
-    throw new Error('data[batch].length must be ' + length)
-  }
-  if (!Array.isArray(batches[0][0]) || typeof batches[0][0][0] !== 'number') {
-    throw new Error('data must be 3D array')
-  }
-  for (let batch of batches) {
-    for (let i = 0; i < length; i++) {
-      if (batch[i].length !== num_boxes) {
-        throw new Error('data[batch][${i}].length must be ' + num_boxes)
-      }
-    }
-  }
-}
-
 /** [height, width, num_instances] -> 0 for background, 1 for object */
 export type Mask = number[][]
 export type BoundingBoxWithMaskCoefficients = BoundingBox & {
@@ -145,20 +99,20 @@ export async function decodeSegment(
     return []
   }
   if (batches_boxes[0].length !== boxes_length) {
-    throw new Error('boxes_data[0].length must be ' + boxes_length)
+    throw new Error(`boxes_data[batch].length must be ${boxes_length}`)
   }
   let num_boxes = batches_boxes[0][0].length
 
   // e.g. 1x160x160x32
   let batches_masks = args.output_masks
   if (batches_masks[0].length !== mask_height) {
-    throw new Error('masks_data[0].length must be ' + mask_height)
+    throw new Error(`masks_data[batch].length must be ${mask_height}`)
   }
   if (batches_masks[0][0].length !== mask_width) {
-    throw new Error('masks_data[0][0].length must be ' + mask_width)
+    throw new Error(`masks_data[batch][y].length must be ${mask_width}`)
   }
   if (batches_masks[0][0][0].length !== num_instances) {
-    throw new Error('masks_data[0][0][0].length must be ' + num_instances)
+    throw new Error(`masks_data[batch][y][x].length must be ${num_instances}`)
   }
 
   if (batches_boxes.length !== batches_masks.length) {
@@ -292,20 +246,20 @@ export function decodeSegmentSync(args: DecodeSegmentArgs): SegmentResult {
     return []
   }
   if (batches_boxes[0].length !== boxes_length) {
-    throw new Error('boxes_data[0].length must be ' + boxes_length)
+    throw new Error(`boxes_data[batch].length must be ${boxes_length}`)
   }
   let num_boxes = batches_boxes[0][0].length
 
   // e.g. 1x160x160x32
   let batches_masks = args.output_masks
   if (batches_masks[0].length !== mask_height) {
-    throw new Error('masks_data[0].length must be ' + mask_height)
+    throw new Error(`masks_data[batch].length must be ${mask_height}`)
   }
   if (batches_masks[0][0].length !== mask_width) {
-    throw new Error('masks_data[0][0].length must be ' + mask_width)
+    throw new Error(`masks_data[batch][y].length must be ${mask_width}`)
   }
   if (batches_masks[0][0][0].length !== num_instances) {
-    throw new Error('masks_data[0][0][0].length must be ' + num_instances)
+    throw new Error(`masks_data[batch][y][x].length must be ${num_instances}`)
   }
 
   if (batches_boxes.length !== batches_masks.length) {

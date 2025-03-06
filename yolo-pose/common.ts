@@ -1,52 +1,6 @@
 import type * as tf_type from '@tensorflow/tfjs'
 import { BoundingBox } from '../yolo-box/common'
 
-export function checkPoseOutput(args: {
-  input_shape: { width: number; height: number }
-  /** e.g. `1` for single class */
-  num_classes: number
-  /** e.g. `17` for 17 keypoints */
-  num_keypoints: number
-  /** [batch, features, boxes] e.g. 1x56x8400 */
-  output: number[][][]
-}) {
-  let {
-    input_shape: { width, height },
-    num_classes,
-    num_keypoints,
-  } = args
-  let length = 4 + num_classes + num_keypoints * 3
-  let num_boxes =
-    (width / 8) * (height / 8) +
-    (width / 16) * (height / 16) +
-    (width / 32) * (height / 32)
-
-  // e.g. 1x56x8400
-  let batches = args.output
-  if (!Array.isArray(batches)) {
-    throw new Error('data must be 3D array')
-  }
-  if (batches[0].length === 0) {
-    throw new Error('no a single batch')
-  }
-  if (!Array.isArray(batches[0])) {
-    throw new Error('data must be 3D array')
-  }
-  if (batches[0].length !== length) {
-    throw new Error('data[batch].length must be ' + length)
-  }
-  if (!Array.isArray(batches[0][0]) || typeof batches[0][0][0] !== 'number') {
-    throw new Error('data must be 3D array')
-  }
-  for (let batch of batches) {
-    for (let i = 0; i < length; i++) {
-      if (batch[i].length !== num_boxes) {
-        throw new Error('data[batch][${i}].length must be ' + num_boxes)
-      }
-    }
-  }
-}
-
 export type Keypoint = {
   /** x of keypoint in px */
   x: number
@@ -120,7 +74,7 @@ export async function decodePose(args: DecodePoseArgs): Promise<PoseResult> {
     return []
   }
   if (batches[0].length !== length) {
-    throw new Error('data[0].length must be ' + length)
+    throw new Error(`data[batch].length must be ${length}`)
   }
 
   let num_boxes = batches[0][0].length
@@ -230,7 +184,7 @@ export function decodePoseSync(args: DecodePoseArgs): PoseResult {
     return []
   }
   if (batches[0].length !== length) {
-    throw new Error('data[0].length must be ' + length)
+    throw new Error(`data[batch].length must be ${length}`)
   }
 
   let num_boxes = batches[0][0].length

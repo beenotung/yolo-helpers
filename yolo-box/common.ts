@@ -1,48 +1,5 @@
 import type * as tf_type from '@tensorflow/tfjs'
 
-export function checkBoxOutput(args: {
-  input_shape: { width: number; height: number }
-  /** e.g. `1` for single class, 80 for yolo base model 80 classes */
-  num_classes: number
-  /** [batch, features, boxes] e.g. 1x84x8400 */
-  output: number[][][]
-}) {
-  let {
-    input_shape: { width, height },
-    num_classes,
-  } = args
-  let length = 4 + num_classes
-  let num_boxes =
-    (width / 8) * (height / 8) +
-    (width / 16) * (height / 16) +
-    (width / 32) * (height / 32)
-
-  // e.g. 1x17x8400
-  let batches = args.output
-  if (!Array.isArray(batches)) {
-    throw new Error('data must be 3D array')
-  }
-  if (batches[0].length === 0) {
-    throw new Error('no a single batch')
-  }
-  if (!Array.isArray(batches[0])) {
-    throw new Error('data must be 3D array')
-  }
-  if (batches[0].length !== length) {
-    throw new Error('data[batch].length must be ' + length)
-  }
-  if (!Array.isArray(batches[0][0]) || typeof batches[0][0][0] !== 'number') {
-    throw new Error('data must be 3D array')
-  }
-  for (let batch of batches) {
-    for (let i = 0; i < length; i++) {
-      if (batch[i].length !== num_boxes) {
-        throw new Error('data[batch][${i}].length must be ' + num_boxes)
-      }
-    }
-  }
-}
-
 export type BoundingBox = {
   /** center x of bounding box in px */
   x: number
@@ -111,7 +68,7 @@ export async function decodeBox(args: DecodeBoxArgs): Promise<BoxResult> {
     return []
   }
   if (batches[0].length !== length) {
-    throw new Error('data[0].length must be ' + length)
+    throw new Error(`data[batch].length must be ${length}`)
   }
 
   let num_boxes = batches[0][0].length
@@ -206,7 +163,7 @@ export function decodeBoxSync(args: DecodeBoxArgs): BoxResult {
     return []
   }
   if (batches[0].length !== length) {
-    throw new Error('data[0].length must be ' + length)
+    throw new Error(`data[batch].length must be ${length}`)
   }
 
   let num_boxes = batches[0][0].length
