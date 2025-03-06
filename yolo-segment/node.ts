@@ -13,20 +13,22 @@ export type DetectSegmentArgs = {
     width: number
     height: number
   }
-} & Omit<DecodeSegmentArgs, 'output'> &
+} & Omit<DecodeSegmentArgs, 'output_boxes' | 'output_masks'> &
   ImageInput
 
 /**
- * @description
- * output shape: [batch, features, boxes]
+ * boxes features:
+ *   - x, y, width, height
+ *   - highest confidence, class_index
+ *   - mask coefficients for each channel
  *
- * features:
- * - 4: x, y, width, height
- * - num_classes: class confidence
- * - num_keypoints * 3: keypoint x, y, visibility
+ * mask features:
+ * - [height, width, channel]: 0 for background, 1 for object
  *
  * The x, y, width, height are in pixel unit, NOT normalized in the range of [0, 1].
  * The the pixel units are scaled to the input_shape.
+ *
+ * The confidence are already normalized between 0 to 1.
  */
 export async function detectSegment(args: DetectSegmentArgs) {
   let { model } = args

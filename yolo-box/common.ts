@@ -56,6 +56,16 @@ export type DecodeBoxArgs = {
   scoreThreshold?: number
 }
 
+/**
+ * tensorflow output: [batch, features, instances]
+ * features:
+ * - 4: x, y, width, height
+ * - num_classes: class confidence
+ *
+ * e.g. 1x84x8400 for 1 batch of 8400 instances with 80 classes
+ *
+ * The confidence are already normalized between 0 to 1.
+ */
 export async function decodeBox(args: DecodeBoxArgs): Promise<BoxResult> {
   let { tf, num_classes, maxOutputSize, iouThreshold, scoreThreshold } = args
   let length = 4 + num_classes

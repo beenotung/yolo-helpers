@@ -2,6 +2,7 @@ import * as tf from '@tensorflow/tfjs'
 import {
   combineModelAndMetadata,
   loadTextFromUrl,
+  ModelMetadata,
   parseMetadataYaml,
 } from './common'
 
@@ -35,9 +36,12 @@ export async function loadYoloModel(
   let model = tf.loadGraphModel(modelUrl)
 
   let metadataUrl = modelUrl.replace(/model\.json$/, 'metadata.yaml')
-  let metadata = loadTextFromUrl(metadataUrl).then(text =>
-    parseMetadataYaml(text),
-  )
+  let metadata = loadTextFromUrl(metadataUrl)
+    .then(text => parseMetadataYaml(text))
+    .catch((e): ModelMetadata => {
+      console.error(`failed to load ${metadataUrl}, error:`, e)
+      return {}
+    })
 
   return combineModelAndMetadata(await model, await metadata)
 }

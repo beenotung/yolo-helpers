@@ -20,20 +20,18 @@ export type DetectSegmentArgs = {
   ImageInput
 
 /**
- * @description
- * output shape: [batch, features, boxes] and [batch, mask_height, mask_width, 32]
+ * boxes features:
+ *   - x, y, width, height
+ *   - highest confidence, class_index
+ *   - mask coefficients for each channel
  *
- * first output features:
- * - 4: x, y, width, height
- * - num_classes: class confidence
- * - 32: instance confidence
- *
- * second output binary mask
- * - mask_height x mask_width: 0 for background, 1 for object
- * - 32: instance index
+ * mask features:
+ * - [height, width, channel]: 0 for background, 1 for object
  *
  * The x, y, width, height are in pixel unit, NOT normalized in the range of [0, 1].
  * The the pixel units are scaled to the input_shape.
+ *
+ * The confidence are already normalized between 0 to 1.
  */
 export async function detectSegment(
   args: DetectSegmentArgs,

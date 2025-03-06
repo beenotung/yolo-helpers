@@ -1,7 +1,7 @@
 import type * as tf_type from '@tensorflow/tfjs'
 import { BoundingBox } from '../yolo-box/common'
 
-/** [height, width, num_instances] -> 0 for background, 1 for object */
+/** [height, width, num_channels] -> 0 for background, 1 for object */
 export type Mask = number[][]
 export type BoundingBoxWithMaskCoefficients = BoundingBox & {
   /** 32 coefficients of mask */
@@ -15,7 +15,7 @@ export type BoundingBoxWithMaskCoefficients = BoundingBox & {
  * */
 export type SegmentResult = {
   bounding_boxes: BoundingBoxWithMaskCoefficients[]
-  /** e.g. [mask_height, mask_width, 32] for 32 instances of masks */
+  /** e.g. [mask_height, mask_width, 32] for 32 channels of masks */
   masks: Mask[]
 }[]
 
@@ -31,10 +31,10 @@ export type DecodeSegmentArgs = {
   /** e.g. `1` for single class */
   num_classes: number
   /**
-   * Number of instances in binary mask
+   * Number of channels in segmentation mask
    * default: `32`
    */
-  num_instances?: number
+  num_channels?: number
 
   /** batched predict result, e.g. 1x116x8400 */
   output_boxes: number[][][]
@@ -81,15 +81,32 @@ function getMaskShape(args: DecodeSegmentArgs): ImageSize {
   throw new Error('missing mask_shape or input_shape')
 }
 
+/**
+ * tensorflow output: boxes [batch, features, channel] and masks [batch, height, width, channel]
+ *
+ * box features:
+ * - 4: x, y, width, height
+ * - num_classes: class confidence
+ * - 32: channel coefficients
+ *
+ * segmentation mask:
+ * - 0 for background, 1 for object
+ * - 32 channels, correspond to the 32 channel coefficients in the bounding box
+ *
+ * The x, y, width, height are in pixel unit, NOT normalized in the range of [0, 1].
+ * The the pixel units are scaled to the input_shape.
+ *
+ * The confidence are already normalized between 0 to 1.
+ */
 export async function decodeSegment(
   args: DecodeSegmentArgs,
 ): Promise<SegmentResult> {
   let { tf, num_classes, maxOutputSize, iouThreshold, scoreThreshold } = args
-  let num_instances = args.num_instances ?? 32
+  let num_channels = args.num_channels ?? 32
 
   let { width: mask_width, height: mask_height } = getMaskShape(args)
 
-  let boxes_length = 4 + num_classes + num_instances
+  let boxes_length = 4 + num_classes + num_channels
 
   // e.g. 1x116x8400
   let batches_boxes = args.output_boxes
@@ -111,8 +128,8 @@ export async function decodeSegment(
   if (batches_masks[0][0].length !== mask_width) {
     throw new Error(`masks_data[batch][y].length must be ${mask_width}`)
   }
-  if (batches_masks[0][0][0].length !== num_instances) {
-    throw new Error(`masks_data[batch][y][x].length must be ${num_instances}`)
+  if (batches_masks[0][0][0].length !== num_channels) {
+    throw new Error(`masks_data[batch][y][x].length must be ${num_channels}`)
   }
 
   if (batches_boxes.length !== batches_masks.length) {
@@ -132,9 +149,6 @@ export async function decodeSegment(
 
     let cls_scores: number[] = []
     let cls_indices: number[] = []
-
-    let instance_scores: number[] = []
-    let instance_indices: number[] = []
 
     for (let box_index = 0; box_index < num_boxes; box_index++) {
       let x = batch_boxes[0][box_index]
@@ -157,23 +171,10 @@ export async function decodeSegment(
         }
       }
 
-      let instance_score = batch_boxes[4 + num_classes][box_index]
-      let instance_index = 0
-      for (let i = 1; i < num_instances; i++) {
-        let score = batch_boxes[4 + num_classes + i][box_index]
-        if (score > instance_score) {
-          instance_score = score
-          instance_index = i
-        }
-      }
-
       boxes.push([x1, y1, x2, y2])
 
       cls_scores.push(cls_score)
       cls_indices.push(cls_index)
-
-      instance_scores.push(instance_score)
-      instance_indices.push(instance_index)
     }
 
     let box_indices: number[]
@@ -203,8 +204,8 @@ export async function decodeSegment(
       for (let i = 0; i < num_classes; i++) {
         all_confidences[i] = batch_boxes[4 + i][box_index]
       }
-      let mask_coefficients: number[] = new Array(num_instances)
-      for (let i = 0; i < num_instances; i++) {
+      let mask_coefficients: number[] = new Array(num_channels)
+      for (let i = 0; i < num_channels; i++) {
         mask_coefficients[i] = batch_boxes[4 + num_classes + i][box_index]
       }
       bounding_boxes.push({
@@ -232,11 +233,11 @@ export async function decodeSegment(
  */
 export function decodeSegmentSync(args: DecodeSegmentArgs): SegmentResult {
   let { tf, num_classes, maxOutputSize, iouThreshold, scoreThreshold } = args
-  let num_instances = args.num_instances ?? 32
+  let num_channels = args.num_channels ?? 32
 
   let { width: mask_width, height: mask_height } = getMaskShape(args)
 
-  let boxes_length = 4 + num_classes + num_instances
+  let boxes_length = 4 + num_classes + num_channels
 
   // e.g. 1x116x8400
   let batches_boxes = args.output_boxes
@@ -258,8 +259,8 @@ export function decodeSegmentSync(args: DecodeSegmentArgs): SegmentResult {
   if (batches_masks[0][0].length !== mask_width) {
     throw new Error(`masks_data[batch][y].length must be ${mask_width}`)
   }
-  if (batches_masks[0][0][0].length !== num_instances) {
-    throw new Error(`masks_data[batch][y][x].length must be ${num_instances}`)
+  if (batches_masks[0][0][0].length !== num_channels) {
+    throw new Error(`masks_data[batch][y][x].length must be ${num_channels}`)
   }
 
   if (batches_boxes.length !== batches_masks.length) {
@@ -279,9 +280,6 @@ export function decodeSegmentSync(args: DecodeSegmentArgs): SegmentResult {
 
     let cls_scores: number[] = []
     let cls_indices: number[] = []
-
-    let instance_scores: number[] = []
-    let instance_indices: number[] = []
 
     for (let box_index = 0; box_index < num_boxes; box_index++) {
       let x = batch_boxes[0][box_index]
@@ -304,23 +302,10 @@ export function decodeSegmentSync(args: DecodeSegmentArgs): SegmentResult {
         }
       }
 
-      let instance_score = batch_boxes[4 + num_classes][box_index]
-      let instance_index = 0
-      for (let i = 1; i < num_instances; i++) {
-        let score = batch_boxes[4 + num_classes + i][box_index]
-        if (score > instance_score) {
-          instance_score = score
-          instance_index = i
-        }
-      }
-
       boxes.push([x1, y1, x2, y2])
 
       cls_scores.push(cls_score)
       cls_indices.push(cls_index)
-
-      instance_scores.push(instance_score)
-      instance_indices.push(instance_index)
     }
 
     let box_indices: number[]
@@ -351,8 +336,8 @@ export function decodeSegmentSync(args: DecodeSegmentArgs): SegmentResult {
       for (let i = 0; i < num_classes; i++) {
         all_confidences[i] = batch_boxes[4 + i][box_index]
       }
-      let mask_coefficients: number[] = new Array(num_instances)
-      for (let i = 0; i < num_instances; i++) {
+      let mask_coefficients: number[] = new Array(num_channels)
+      for (let i = 0; i < num_channels; i++) {
         mask_coefficients[i] = batch_boxes[4 + num_classes + i][box_index]
       }
       bounding_boxes.push({
@@ -376,22 +361,22 @@ export function decodeSegmentSync(args: DecodeSegmentArgs): SegmentResult {
 }
 
 /**
- * @description final mask = mask coefficients * mask instances
+ * @description final mask = mask coefficients * mask channels
  */
 export function combineMask(
   bounding_box: BoundingBoxWithMaskCoefficients,
-  /** e.g. [mask_height, mask_width, 32] for 32 instances of masks */
+  /** e.g. [mask_height, mask_width, 32] for 32 channels of masks */
   masks: Mask[],
 ) {
   let mask_coefficients = bounding_box.mask_coefficients
 
   let mask_height = masks.length
   let mask_width = masks[0].length
-  let num_instances = masks[0][0].length
+  let num_channels = masks[0][0].length
 
-  if (num_instances != mask_coefficients.length) {
+  if (num_channels != mask_coefficients.length) {
     throw new Error(
-      `expect ${num_instances} mask coefficients, but got ${mask_coefficients.length}`,
+      `expect ${num_channels} mask coefficients, but got ${mask_coefficients.length}`,
     )
   }
 
@@ -400,7 +385,7 @@ export function combineMask(
     final_mask[h] = new Array(mask_width)
     for (let w = 0; w < mask_width; w++) {
       let acc = 0
-      for (let i = 0; i < num_instances; i++) {
+      for (let i = 0; i < num_channels; i++) {
         acc += mask_coefficients[i] * masks[h][w][i]
       }
       acc = sigmoid(acc)

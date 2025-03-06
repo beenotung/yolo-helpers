@@ -21,6 +21,12 @@ export type DecodeClassifyArgs = {
   output: number[][]
 }
 
+/**
+ * tensorflow output: [batch, class_index] -> confidence
+ * e.g. 1x1000 for 1 batch of 1000 classes
+ *
+ * The confidence are already normalized between 0 to 1, and sum up to 1.
+ */
 export function decodeClassify(args: DecodeClassifyArgs): ClassifyResult {
   let { num_classes } = args
 

@@ -15,15 +15,14 @@ export type DetectBoxArgs = {
   ImageInput
 
 /**
- * @description
- * output shape: [batch, features, boxes]
- *
- * features:
- * - 4: x, y, width, height
- * - num_classes: class confidence
+ * box features:
+ *   - x, y, width, height
+ *   - highest confidence, class_index
  *
  * The x, y, width, height are in pixel unit, NOT normalized in the range of [0, 1].
  * The the pixel units are scaled to the input_shape.
+ *
+ * The confidence are already normalized between 0 to 1.
  */
 export async function detectBox(args: DetectBoxArgs): Promise<BoxResult> {
   let { model } = args

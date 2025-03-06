@@ -3,6 +3,7 @@ import { readFile } from 'fs/promises'
 import {
   combineModelAndMetadata,
   loadTextFromUrl,
+  ModelMetadata,
   parseMetadataYaml,
 } from './common'
 
@@ -28,7 +29,12 @@ export async function loadYoloModel(
   let model = tf.loadGraphModel(modelPath)
 
   let metadataPath = modelPath.replace(/model\.json$/, 'metadata.yaml')
-  let metadata = loadText(metadataPath).then(text => parseMetadataYaml(text))
+  let metadata = loadText(metadataPath)
+    .then(text => parseMetadataYaml(text))
+    .catch((e): ModelMetadata => {
+      console.error(`failed to load ${metadataPath}, error:`, e)
+      return {}
+    })
 
   return combineModelAndMetadata(await model, await metadata)
 }

@@ -54,6 +54,18 @@ export type DecodePoseArgs = {
   scoreThreshold?: number
 }
 
+/**
+ * tensorflow output: [batch, features, instances]
+ * features:
+ * - 4: x, y, width, height
+ * - num_classes: class confidence
+ * - num_keypoints * 3: keypoint x, y, visibility
+ *
+ * e.g. 1x17x8400 for 1 batch of 8400 instances with 4 keypoints and 1 class
+ * (17 = 4 + 1 + 4 * 3)
+ *
+ * The confidence are already normalized between 0 to 1.
+ */
 export async function decodePose(args: DecodePoseArgs): Promise<PoseResult> {
   let {
     tf,
