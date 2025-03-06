@@ -1,6 +1,9 @@
 export * from './tensorflow/browser'
 export * from './tensorflow/common'
 
+export * from './yolo-classify/browser'
+export * from './yolo-classify/common'
+
 export * from './yolo-box/browser'
 export * from './yolo-box/common'
 

@@ -8,6 +8,7 @@ import {
   detectBox,
   combineMask,
   hasOverlap,
+  classifyImage,
 } from '../../browser'
 
 declare let app: HTMLElement
@@ -24,6 +25,74 @@ maxOutputSize = 20
 
 let scoreThreshold = 0.2
 let iouThreshold = 0.1
+
+async function main_classify() {
+  let num_classes = 1000
+
+  console.log('loading model...')
+  let model = await loadYoloModel('saved_models/yolo11n-cls_web_model')
+  console.log({ model })
+
+  let input_height = model.inputs[0].shape![1]
+  let input_width = model.inputs[0].shape![2]
+
+  console.log('loading image...')
+  await new Promise(resolve => {
+    image.src = image_src
+    image.onload = resolve
+  })
+
+  console.log('warm up...')
+  let warm_up_rounds = 20
+  // warm_up_rounds = 0
+  for (let i = 0; i < warm_up_rounds; i++) {
+    console.time('classifyImage')
+    await classifyImage({
+      model,
+      pixels: image,
+      num_classes,
+    })
+    console.timeEnd('classifyImage')
+  }
+
+  console.log('predicting...')
+  let predictions = await classifyImage({
+    model,
+    pixels: image,
+    num_classes,
+  })
+  console.log({ predictions })
+
+  image.style.width = `${input_width}px`
+  image.style.height = `${input_height}px`
+  let rect = image.getBoundingClientRect()
+  canvas.width = rect.width
+  canvas.height = rect.height
+  canvas.style.width = rect.width + 'px'
+  canvas.style.height = rect.height + 'px'
+
+  console.log('drawing...')
+  context.clearRect(0, 0, canvas.width, canvas.height)
+
+  for (let prediction of predictions) {
+    let list = document.createElement('ol')
+    prediction.all_confidences
+      .map((confidence, index) => {
+        let item = document.createElement('li')
+        item.textContent = `${confidence.toFixed(2)} (${index}:${
+          model.class_names?.[index]
+        })`
+        return { item, confidence }
+      })
+      .sort((a, b) => b.confidence - a.confidence)
+      .forEach(({ item }) => {
+        list.appendChild(item)
+      })
+    document.body.appendChild(list)
+  }
+
+  console.log('done')
+}
 
 async function main_box() {
   let num_classes = 80

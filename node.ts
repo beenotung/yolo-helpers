@@ -1,6 +1,9 @@
 export * from './tensorflow/node'
 export * from './tensorflow/common'
 
+export * from './yolo-classify/node'
+export * from './yolo-classify/common'
+
 export * from './yolo-box/node'
 export * from './yolo-box/common'
 

@@ -9,9 +9,10 @@ Helper functions to use models converted from YOLO in browser and Node.js.
 ## Features
 
 - Support for YOLO models:
-  - [Object Detection](https://docs.ultralytics.com/tasks/detect/) (detects objects and their bounding boxes)
-  - [Keypoint Detection](https://docs.ultralytics.com/tasks/pose/) (for pose estimation and keypoint localization)
-  - [Instance Segmentation](https://docs.ultralytics.com/tasks/segment/) (detects objects and generates segmentation masks)
+  - [Image Classification](https://docs.ultralytics.com/tasks/classify/) (classify images into one of the given classes)
+  - [Object Detection](https://docs.ultralytics.com/tasks/detect/) (detect objects and location of bounding boxes)
+  - [Keypoint Detection](https://docs.ultralytics.com/tasks/pose/) (detect objects and location of keypoints)
+  - [Instance Segmentation](https://docs.ultralytics.com/tasks/segment/) (detect objects and generate segmentation masks)
 - Typescript support
 - Isomorphic package: works in Node.js and browsers
 
