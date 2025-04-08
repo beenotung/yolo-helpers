@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Live Camera</title>
+    <style>
+      body {
+        margin: 0.5rem;
+      }
+      h1 {
+        margin: 0;
+      }
+      main {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        height: calc(100dvh - 1rem);
+      }
+      #camera-container {
+        position: relative;
+        flex-grow: 1;
+      }
+      #camera-video {
+        position: absolute;
+      }
+      #camera-canvas {
+        position: absolute;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Live Camera <span id="model-name"></span></h1>
+      <div id="status">Loading...</div>
+      <div>
+        <button id="start-front-camera" disabled>
+          <span>Start Front Camera</span>
+        </button>
+        <button id="start-back-camera" disabled>
+          <span>Start Back Camera</span>
+        </button>
+        <button id="stop-camera" disabled>
+          <span>Stop Camera</span>
+        </button>
+      </div>
+      <div id="camera-container">
+        <video id="camera-video" autoplay muted playsinline></video>
+        <canvas id="camera-canvas"></canvas>
+      </div>
+    </main>
+    <script src="bundle.js"></script>
+  </body>
+</html>

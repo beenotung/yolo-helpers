@@ -65,11 +65,13 @@ export function preprocessInput(
 }
 
 export type ModelMetadata = {
-  names?: string[]
+  task?: 'detect' | 'pose' | 'segment' | string
+  class_names?: string[]
+  keypoints?: number
+  visibility?: boolean
 }
 /**
- *
- * example:
+ * example of segmentation model:
  * ```
  * version: 8.3.83
  * task: segment
@@ -88,54 +90,70 @@ export type ModelMetadata = {
  *   nms: false
  * ```
  *
+ * example of pose model:
+ * ```
+ * task: pose
+ * kpt_shape:
+ * - 17
+ * - 3
+ * ```
  */
 export function parseMetadataYaml(text: string): ModelMetadata {
-  let lines = text
-    .split('\n')
-    .map(line => line.replaceAll('\r', ''))
-    .filter(line => !line.trim().startsWith('#'))
-  let start = lines.indexOf('names:')
-  if (start == -1) {
-    return {}
+  let lines = parseLines(text)
+
+  // e.g. "task: pose" -> "pose"
+  let task = lines
+    .find(line => line.startsWith('task:'))
+    ?.split(':')[1]
+    .trim()
+
+  /**
+   * e.g.
+   * ```
+   * kpt_shape:
+   * - 17 # number of keypoints
+   * - 3  # number of dimensions per keypoint, 2 for {x,y}, 3 for {x,y,visibility}
+   * ```
+   */
+  let index = lines.indexOf('kpt_shape:')
+  let keypoints = index == -1 ? undefined : parseIntFromLine(lines[index + 1])
+  let visibility =
+    index == -1 ? undefined : parseIntFromLine(lines[index + 2]) == 3
+
+  // e.g. "names:"
+  index = lines.indexOf('names:')
+  let class_names: string[] = []
+  for (let i = index + 1; i < lines.length; i++) {
+    // e.g. "  0: person" -> "person"
+    let line = lines[i].trim()
+    let idx = parseInt(line)
+    let name = line.replace(String(idx), '').replace(':', '').trim()
+    class_names[idx] = name
   }
-  start++
-  let end = lines.findIndex(
-    (line, index) => index >= start && !line.startsWith(' '),
-  )
-  if (end == -1) {
-    end = lines.length
-  }
-  let names: string[] = []
-  lines.slice(start, end).forEach(line => {
-    line = line.split('#')[0]
-    // e.g. "9: traffic light"
-    let index = line.indexOf(':')
-    if (index == -1) {
-      throw new Error(
-        `failed to parse class name, line: ${JSON.stringify(line)}`,
-      )
-    }
-    let cls_index = +line.slice(0, index).trim()
-    let cls_name = line.slice(index + 1).trim()
-    if (!Number.isInteger(cls_index)) {
-      throw new Error(
-        `failed to parse class index, line: ${JSON.stringify(line)}`,
-      )
-    }
-    names[cls_index] = cls_name
-  })
-  return {
-    names,
-  }
+
+  return { task, class_names, keypoints, visibility }
 }
+
+// e.g. "  - 17" -> 17
+function parseIntFromLine(line: string) {
+  return parseInt(line.replace('-', '').trim())
+}
+
+// skip empty line and comment lines starting with '#'
+function parseLines(text: string) {
+  return text
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line.length > 0 && !line.startsWith('#'))
+}
+
+export type ModelWithMetadata<T extends InferenceModel> = T & ModelMetadata
 
 export function combineModelAndMetadata<T extends InferenceModel>(
   model: T,
   metadata: ModelMetadata,
-) {
-  return Object.assign(model, {
-    class_names: metadata.names,
-  })
+): ModelWithMetadata<T> {
+  return Object.assign(model, metadata)
 }
 
 export async function loadTextFromUrl(url: string): Promise<string> {

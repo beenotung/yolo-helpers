@@ -40,6 +40,7 @@
   ],
   "scripts": {
     "dev": "esbuild --watch --bundle --outfile=examples/browser/bundle.js examples/browser/app.ts",
+    "dev:live": "esbuild --watch --bundle --outfile=examples/live-camera/bundle.js examples/live-camera/app.ts",
     "test": "tsc --noEmit",
     "clean": "rimraf dist",
     "build": "rimraf dist && tsc -p . && rimraf dist/tsconfig.tsbuildinfo",

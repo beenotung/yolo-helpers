@@ -20,6 +20,9 @@ let context = canvas.getContext('2d')!
 let image_src = 'demo.jpg'
 let maxOutputSize = 1
 
+let warm_up_rounds = 10
+warm_up_rounds = 0
+
 image_src = 'example.png'
 maxOutputSize = 20
 
@@ -43,8 +46,6 @@ async function main_classify() {
   })
 
   console.log('warm up...')
-  let warm_up_rounds = 20
-  // warm_up_rounds = 0
   for (let i = 0; i < warm_up_rounds; i++) {
     console.time('classifyImage')
     await classifyImage({
@@ -95,8 +96,6 @@ async function main_classify() {
 }
 
 async function main_box() {
-  let num_classes = 80
-
   console.log('loading model...')
   let model = await loadYoloModel('saved_models/yolo11n_web_model_640')
   // let model = await loadYoloModel('saved_models/yolo11n_web_model')
@@ -112,8 +111,6 @@ async function main_box() {
   })
 
   console.log('warm up...')
-  let warm_up_rounds = 10
-  warm_up_rounds = 0
   for (let i = 0; i < warm_up_rounds; i++) {
     console.time('detectBox')
     await detectBox({
@@ -121,7 +118,7 @@ async function main_box() {
       model,
       pixels: image,
       maxOutputSize,
-      num_classes,
+      num_classes: model.class_names!.length,
       scoreThreshold,
       iouThreshold,
     })
@@ -134,7 +131,7 @@ async function main_box() {
     model,
     pixels: image,
     maxOutputSize,
-    num_classes,
+    num_classes: model.class_names!.length,
     scoreThreshold,
     iouThreshold,
   })
@@ -175,9 +172,6 @@ async function main_box() {
 }
 
 async function main_pose() {
-  let num_classes = 1
-  let num_keypoints = 17
-
   console.log('loading model...')
   let model = await loadYoloModel('saved_models/yolo11n-pose_web_model')
   console.log({ model })
@@ -192,17 +186,16 @@ async function main_pose() {
   })
 
   console.log('warm up...')
-  let warm_up_rounds = 10
-  warm_up_rounds = 0
   for (let i = 0; i < warm_up_rounds; i++) {
     console.time('detectPose')
     await detectPose({
       tf,
       model,
       pixels: image,
-      maxOutputSize: 1,
-      num_classes,
-      num_keypoints,
+      maxOutputSize,
+      num_classes: model.class_names!.length,
+      num_keypoints: model.keypoints!,
+      visibility: model.visibility!,
     })
     console.timeEnd('detectPose')
   }
@@ -212,9 +205,10 @@ async function main_pose() {
     tf,
     model,
     pixels: image,
-    maxOutputSize: 1,
-    num_classes,
-    num_keypoints,
+    maxOutputSize,
+    num_classes: model.class_names!.length,
+    num_keypoints: model.keypoints!,
+    visibility: model.visibility!,
   })
   console.log({ predictions })
 
@@ -268,11 +262,10 @@ async function main_pose() {
 }
 
 async function main_segment() {
-  let num_classes = 80
-
   console.log('loading model...')
-  let model = await loadYoloModel('saved_models/yolo11n-seg_web_model_640')
+  // let model = await loadYoloModel('saved_models/yolo11n-seg_web_model_640')
   // let model = await loadYoloModel('saved_models/yolo11n-seg_web_model')
+  let model = await loadYoloModel('saved_models/tongue-seg-v1_web_model')
   console.log({ model })
 
   let input_height = model.inputs[0].shape![1]
@@ -294,7 +287,7 @@ async function main_segment() {
       model,
       pixels: image,
       maxOutputSize,
-      num_classes,
+      num_classes: model.class_names!.length,
       scoreThreshold,
       iouThreshold,
     })
@@ -307,7 +300,7 @@ async function main_segment() {
     model,
     pixels: image,
     maxOutputSize,
-    num_classes,
+    num_classes: model.class_names!.length,
     scoreThreshold,
     iouThreshold,
   })
