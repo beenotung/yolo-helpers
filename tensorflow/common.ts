@@ -124,9 +124,12 @@ export function parseMetadataYaml(text: string): ModelMetadata {
   index = lines.indexOf('names:')
   let class_names: string[] = []
   for (let i = index + 1; i < lines.length; i++) {
-    // e.g. "  0: person" -> "person"
+    // e.g. "  0: person" -> "person" or "args: ..."
     let line = lines[i].trim()
     let idx = parseInt(line)
+    if (Number.isNaN(idx)) {
+      break
+    }
     let name = line.replace(String(idx), '').replace(':', '').trim()
     class_names[idx] = name
   }
