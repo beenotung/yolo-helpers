@@ -1,6 +1,7 @@
 import * as tf from '@tensorflow/tfjs-node'
 import { detectPose, detectPoseSync, loadYoloModel } from '../../node'
 import { resolve } from 'path'
+import { writeFileSync } from 'fs'
 
 async function main() {
   let file = '../browser/demo.jpg'
@@ -16,8 +17,9 @@ async function main() {
         file,
         model,
         maxOutputSize: 1,
-        num_classes: 1,
-        num_keypoints: 17,
+        num_classes: model.class_names!.length,
+        num_keypoints: model.keypoints!,
+        visibility: model.visibility!,
       })
       console.timeEnd('detectPose')
     }
@@ -28,11 +30,13 @@ async function main() {
     file,
     model,
     maxOutputSize: 1,
-    num_classes: 1,
-    num_keypoints: 17,
+    num_classes: model.class_names!.length,
+    num_keypoints: model.keypoints!,
+    visibility: model.visibility!,
   })
   console.log('predictions[0][0]:')
   console.dir(predictions[0][0], { depth: 0 })
+  writeFileSync('predictions.json', JSON.stringify(predictions, null, 2))
 }
 main().catch(e => console.error(e))
 
@@ -57,4 +61,4 @@ async function test() {
 
   console.log('[pass] tested all variants of model url')
 }
-test().catch(e => console.error(e))
+// test().catch(e => console.error(e))
