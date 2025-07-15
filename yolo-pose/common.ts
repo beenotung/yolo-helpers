@@ -77,7 +77,6 @@ export async function decodePose(args: DecodePoseArgs): Promise<PoseResult> {
     iouThreshold,
     scoreThreshold,
   } = args
-  // TODO allow customize w/wo visibility for keypoints
   let length = 4 + num_classes + num_keypoints * (args.visibility ? 3 : 2)
 
   // e.g. 1x17x8400
@@ -192,7 +191,7 @@ export function decodePoseSync(args: DecodePoseArgs): PoseResult {
     iouThreshold,
     scoreThreshold,
   } = args
-  let length = 4 + num_classes + num_keypoints * 3
+  let length = 4 + num_classes + num_keypoints * (args.visibility ? 3 : 2)
 
   // e.g. 1x17x8400
   let batches = args.output
@@ -270,10 +269,14 @@ export function decodePoseSync(args: DecodePoseArgs): PoseResult {
         all_confidences[i] = batch[4 + i][box_index]
       }
       let keypoints: Keypoint[] = []
-      for (let offset = 4 + num_classes; offset + 2 < length; offset += 3) {
+      for (
+        let offset = 4 + num_classes;
+        offset + 2 < length;
+        offset += args.visibility ? 3 : 2
+      ) {
         let x = batch[offset + 0][box_index]
         let y = batch[offset + 1][box_index]
-        let visibility = batch[offset + 2][box_index]
+        let visibility = args.visibility ? batch[offset + 2][box_index] : 1
         keypoints.push({ x, y, visibility })
       }
       bounding_boxes.push({
