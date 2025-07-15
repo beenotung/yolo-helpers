@@ -155,7 +155,7 @@ export async function decodePose(args: DecodePoseArgs): Promise<PoseResult> {
       let keypoints: Keypoint[] = []
       for (
         let offset = 4 + num_classes;
-        offset + 2 < length;
+        offset < length;
         offset += args.visibility ? 3 : 2
       ) {
         let x = batch[offset + 0][box_index]
@@ -271,7 +271,7 @@ export function decodePoseSync(args: DecodePoseArgs): PoseResult {
       let keypoints: Keypoint[] = []
       for (
         let offset = 4 + num_classes;
-        offset + 2 < length;
+        offset < length;
         offset += args.visibility ? 3 : 2
       ) {
         let x = batch[offset + 0][box_index]
