@@ -54,7 +54,7 @@ export function drawBox(args: DrawBoxArgs) {
     context.font = font
     let metrics = context.measureText(text)
     let width = metrics.width
-    let height = metrics.fontBoundingBoxAscent
+    let height = metrics.fontBoundingBoxAscent || metrics.actualBoundingBoxAscent || 25
 
     if (top - lineWidth - height >= 0) {
       // draw background of text label
