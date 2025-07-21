@@ -1,6 +1,6 @@
 {
   "name": "yolo-helpers",
-  "version": "1.5.2",
+  "version": "1.5.3",
   "description": "Helper functions to use models converted from YOLO in browser and Node.js",
   "keywords": [
     "yolo",
