@@ -24,6 +24,8 @@ export type BoundingBox = {
  * */
 export type BoxResult = BoundingBox[][]
 
+export type BoxOutputFormat = 'auto' | 'yolo' | 'yolo26' | 'end2end'
+
 export type DecodeBoxArgs = {
   /**
    * tensorflow runtime:
@@ -35,6 +37,16 @@ export type DecodeBoxArgs = {
   num_classes: number
   /** batched predict result, e.g. 1x84x8400 */
   output: number[][][]
+  /**
+   * Format of the model output.
+   *
+   * - `yolo`: [batch, features, boxes], e.g. 1x84x8400
+   * - `end2end`/`yolo26`: [batch, boxes, 6], e.g. 1x300x6
+   * - `auto`: infer from output shape
+   *
+   * default: `auto`
+   */
+  output_format?: BoxOutputFormat
   /**
    * Number of boxes to return using non-max suppression.
    * If not provided, all boxes will be returned
@@ -56,6 +68,177 @@ export type DecodeBoxArgs = {
   scoreThreshold?: number
 }
 
+export type BoxOutputTensor = tf_type.Tensor | tf_type.Tensor[]
+
+export function getBoxOutputTensor(output: BoxOutputTensor): tf_type.Tensor {
+  if (!Array.isArray(output)) return output
+  let firstRank3Tensor = output.find(tensor => tensor.shape.length === 3)
+  if (firstRank3Tensor) return firstRank3Tensor
+  throw new Error('box output tensor must be rank 3')
+}
+
+function createAllConfidences(
+  num_classes: number,
+  class_index: number,
+  confidence: number,
+): number[] {
+  let all_confidences = new Array(num_classes).fill(0)
+  if (class_index >= 0 && class_index < num_classes) {
+    all_confidences[class_index] = confidence
+  }
+  return all_confidences
+}
+
+function shouldDecodeEnd2End(args: DecodeBoxArgs): boolean {
+  let format = args.output_format ?? 'auto'
+  if (format === 'yolo26' || format === 'end2end') return true
+  if (format === 'yolo') return false
+
+  let length = 4 + args.num_classes
+  let firstBatch = args.output[0]
+  if (!firstBatch || firstBatch.length === 0) return false
+  if (firstBatch.length === length) return false
+  return firstBatch[0]?.length === 6
+}
+
+/**
+ * tensorflow output: [batch, boxes, 6]
+ * box features:
+ * - x1, y1, x2, y2, confidence, class_index
+ *
+ * This is the end-to-end detection output used by YOLO26 exports.
+ */
+export async function decodeEnd2EndBox(
+  args: DecodeBoxArgs,
+): Promise<BoxResult> {
+  let { tf, num_classes, maxOutputSize, iouThreshold, scoreThreshold } = args
+
+  let batches = args.output
+  if (batches[0].length === 0) {
+    return []
+  }
+  if (batches[0][0].length !== 6) {
+    throw new Error('data[batch][box].length must be 6')
+  }
+
+  let result: BoxResult = []
+  for (let batch of batches) {
+    let boxes: [x1: number, y1: number, x2: number, y2: number][] = []
+    let scores: number[] = []
+
+    for (let box_index = 0; box_index < batch.length; box_index++) {
+      let box = batch[box_index]
+      boxes.push([box[0], box[1], box[2], box[3]])
+      scores.push(box[4])
+    }
+
+    let box_indices: number[]
+    if (maxOutputSize) {
+      let box_indices_tensor = await tf.image.nonMaxSuppressionAsync(
+        boxes,
+        scores,
+        maxOutputSize,
+        iouThreshold,
+        scoreThreshold,
+      )
+      box_indices = await box_indices_tensor.array()
+      box_indices_tensor.dispose()
+    } else {
+      box_indices = Array.from({ length: batch.length }, (_, i) => i)
+    }
+
+    let bounding_boxes: BoundingBox[] = []
+    for (let box_index of box_indices) {
+      let [x1, y1, x2, y2, confidence, raw_class_index] = batch[box_index]
+      let class_index = Math.trunc(raw_class_index)
+      let width = x2 - x1
+      let height = y2 - y1
+      bounding_boxes.push({
+        x: x1 + width / 2,
+        y: y1 + height / 2,
+        width,
+        height,
+        class_index,
+        confidence,
+        all_confidences: createAllConfidences(
+          num_classes,
+          class_index,
+          confidence,
+        ),
+      })
+    }
+    result.push(bounding_boxes)
+  }
+  return result
+}
+
+/**
+ * Sync version of `decodeEnd2EndBox`.
+ */
+export function decodeEnd2EndBoxSync(args: DecodeBoxArgs): BoxResult {
+  let { tf, num_classes, maxOutputSize, iouThreshold, scoreThreshold } = args
+
+  let batches = args.output
+  if (batches[0].length === 0) {
+    return []
+  }
+  if (batches[0][0].length !== 6) {
+    throw new Error('data[batch][box].length must be 6')
+  }
+
+  let result: BoxResult = []
+  for (let batch of batches) {
+    let boxes: [x1: number, y1: number, x2: number, y2: number][] = []
+    let scores: number[] = []
+
+    for (let box_index = 0; box_index < batch.length; box_index++) {
+      let box = batch[box_index]
+      boxes.push([box[0], box[1], box[2], box[3]])
+      scores.push(box[4])
+    }
+
+    let box_indices: number[]
+    if (maxOutputSize) {
+      box_indices = tf.tidy(() =>
+        tf.image
+          .nonMaxSuppression(
+            boxes,
+            scores,
+            maxOutputSize,
+            iouThreshold,
+            scoreThreshold,
+          )
+          .arraySync(),
+      )
+    } else {
+      box_indices = Array.from({ length: batch.length }, (_, i) => i)
+    }
+
+    let bounding_boxes: BoundingBox[] = []
+    for (let box_index of box_indices) {
+      let [x1, y1, x2, y2, confidence, raw_class_index] = batch[box_index]
+      let class_index = Math.trunc(raw_class_index)
+      let width = x2 - x1
+      let height = y2 - y1
+      bounding_boxes.push({
+        x: x1 + width / 2,
+        y: y1 + height / 2,
+        width,
+        height,
+        class_index,
+        confidence,
+        all_confidences: createAllConfidences(
+          num_classes,
+          class_index,
+          confidence,
+        ),
+      })
+    }
+    result.push(bounding_boxes)
+  }
+  return result
+}
+
 /**
  * tensorflow output: [batch, features, instances]
  * features:
@@ -67,6 +250,10 @@ export type DecodeBoxArgs = {
  * The confidence are already normalized between 0 to 1.
  */
 export async function decodeBox(args: DecodeBoxArgs): Promise<BoxResult> {
+  if (shouldDecodeEnd2End(args)) {
+    return decodeEnd2EndBox(args)
+  }
+
   let { tf, num_classes, maxOutputSize, iouThreshold, scoreThreshold } = args
   let length = 4 + num_classes
 
@@ -162,6 +349,10 @@ export async function decodeBox(args: DecodeBoxArgs): Promise<BoxResult> {
  * Sync version of `decodeBox`.
  */
 export function decodeBoxSync(args: DecodeBoxArgs): BoxResult {
+  if (shouldDecodeEnd2End(args)) {
+    return decodeEnd2EndBoxSync(args)
+  }
+
   let { tf, num_classes, maxOutputSize, iouThreshold, scoreThreshold } = args
   let length = 4 + num_classes
 

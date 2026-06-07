@@ -41,12 +41,12 @@
   "scripts": {
     "dev": "esbuild --watch --bundle --outfile=examples/browser/bundle.js examples/browser/app.ts",
     "dev:live": "esbuild --watch --bundle --outfile=examples/live-camera/bundle.js examples/live-camera/app.ts",
+    "dev:yolo26": "esbuild yolo26/test.ts --bundle --outfile=yolo26/test.js --servedir=yolo26",
     "test": "tsc --noEmit",
     "clean": "rimraf dist",
     "build": "rimraf dist && tsc -p . && rimraf dist/tsconfig.tsbuildinfo",
     "tsc": "tsc -p ."
   },
-  "dependencies": {},
   "peerDependencies": {
     "@tensorflow/tfjs": "^4.22.0",
     "@tensorflow/tfjs-core": "^4.22.0",
@@ -64,6 +64,9 @@
     }
   },
   "devDependencies": {
+    "@tensorflow/tfjs": "^4.22.0",
+    "@tensorflow/tfjs-core": "^4.22.0",
+    "@tensorflow/tfjs-node": "^4.22.0",
     "@types/node": "^22.10.2",
     "esbuild": "^0.24.0",
     "rimraf": "^6.0.1",
