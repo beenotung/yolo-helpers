@@ -59,8 +59,6 @@ async function main() {
 
   setStatus('Loading model...')
   const model = await loadYoloModel(modelUrl)
-  console.log({model})
-  debugger
   const inputHeight = model.inputs[0].shape![1]
   const inputWidth = model.inputs[0].shape![2]
   canvas.width = inputWidth
@@ -93,7 +91,6 @@ async function main() {
       tf,
       model,
       pixels: canvas,
-      output_format: 'yolo26',
       num_classes: model.class_names?.length ?? 80,
       maxOutputSize,
       scoreThreshold,

@@ -1,4 +1,8 @@
 import type { InferenceModel, Tensor } from '@tensorflow/tfjs'
+import type { BoxOutputFormat } from '../yolo-box/common'
+import type { ClassifyOutputFormat } from '../yolo-classify/common'
+import type { PoseOutputFormat } from '../yolo-pose/common'
+import type { SegmentOutputFormat } from '../yolo-segment/common'
 
 export function getModelInputShape(model: InferenceModel) {
   if (model.inputs.length !== 1) {
@@ -69,6 +73,12 @@ export type ModelMetadata = {
   class_names?: string[]
   keypoints?: number
   visibility?: boolean
+  end2end?: boolean
+  nms?: boolean
+  box_output_format?: BoxOutputFormat
+  classify_output_format?: ClassifyOutputFormat
+  pose_output_format?: PoseOutputFormat
+  segment_output_format?: SegmentOutputFormat
 }
 /**
  * example of segmentation model:
@@ -120,6 +130,21 @@ export function parseMetadataYaml(text: string): ModelMetadata {
   let visibility =
     index == -1 ? undefined : parseIntFromLine(lines[index + 2]) == 3
 
+  let end2end = parseBooleanFromYamlLine(
+    lines.find(line => line.startsWith('end2end:')),
+  )
+  let nms = parseBooleanFromYamlLine(
+    lines.find(line => line.startsWith('nms:')),
+  )
+  let box_output_format: BoxOutputFormat | undefined =
+    task === 'detect' && end2end ? 'end2end' : undefined
+  let classify_output_format: ClassifyOutputFormat | undefined =
+    task === 'classify' ? 'yolo' : undefined
+  let pose_output_format: PoseOutputFormat | undefined =
+    task === 'pose' && end2end ? 'end2end' : undefined
+  let segment_output_format: SegmentOutputFormat | undefined =
+    task === 'segment' && end2end ? 'end2end' : undefined
+
   // e.g. "names:"
   index = lines.indexOf('names:')
   let class_names: string[] = []
@@ -134,12 +159,31 @@ export function parseMetadataYaml(text: string): ModelMetadata {
     class_names[idx] = name
   }
 
-  return { task, class_names, keypoints, visibility }
+  return {
+    task,
+    class_names,
+    keypoints,
+    visibility,
+    end2end,
+    nms,
+    box_output_format,
+    classify_output_format,
+    pose_output_format,
+    segment_output_format,
+  }
 }
 
 // e.g. "  - 17" -> 17
 function parseIntFromLine(line: string) {
   return parseInt(line.replace('-', '').trim())
+}
+
+function parseBooleanFromYamlLine(line: string | undefined) {
+  if (!line) return undefined
+  let value = line.split(':')[1]?.trim().toLowerCase()
+  if (value === 'true') return true
+  if (value === 'false') return false
+  return undefined
 }
 
 // skip empty line and comment lines starting with '#'

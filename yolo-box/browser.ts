@@ -10,8 +10,12 @@ import { ImageInput } from '../tensorflow/browser'
 import { getModelInputShape, preprocessInput } from '../tensorflow/common'
 export * from './common'
 
+export type DetectBoxModel = tf.InferenceModel & {
+  box_output_format?: DecodeBoxArgs['output_format']
+}
+
 export type DetectBoxArgs = {
-  model: tf.InferenceModel
+  model: DetectBoxModel
   /** used for image resize when necessary, auto inferred from model shape */
   input_shape?: {
     width: number
@@ -32,6 +36,7 @@ export type DetectBoxArgs = {
  */
 export async function detectBox(args: DetectBoxArgs): Promise<BoxResult> {
   let { model } = args
+  let output_format = args.output_format ?? model.box_output_format
 
   let input_shape = args.input_shape || getModelInputShape(model)
 
@@ -52,6 +57,7 @@ export async function detectBox(args: DetectBoxArgs): Promise<BoxResult> {
 
   return await decodeBox({
     ...args,
+    output_format,
     output,
   })
 }
@@ -61,6 +67,7 @@ export async function detectBox(args: DetectBoxArgs): Promise<BoxResult> {
  */
 export function detectBoxSync(args: DetectBoxArgs): BoxResult {
   let { model } = args
+  let output_format = args.output_format ?? model.box_output_format
 
   let input_shape = args.input_shape || getModelInputShape(model)
 
@@ -81,6 +88,7 @@ export function detectBoxSync(args: DetectBoxArgs): BoxResult {
 
   return decodeBoxSync({
     ...args,
+    output_format,
     output,
   })
 }
