@@ -21,6 +21,24 @@ export type SegmentResult = {
 
 export type ImageSize = { width: number; height: number }
 
+export type SegmentOutputFormat = 'auto' | 'yolo' | 'yolo26' | 'end2end'
+
+export type SegmentOutputTensor = tf_type.Tensor | tf_type.Tensor[]
+
+export function getSegmentOutputTensors(output: SegmentOutputTensor): {
+  boxes: tf_type.Tensor
+  masks: tf_type.Tensor
+} {
+  if (!Array.isArray(output)) {
+    throw new Error('segment output must contain boxes and masks tensors')
+  }
+  let boxes = output.find(tensor => tensor.shape.length === 3)
+  let masks = output.find(tensor => tensor.shape.length === 4)
+  if (!boxes) throw new Error('segment boxes output tensor must be rank 3')
+  if (!masks) throw new Error('segment masks output tensor must be rank 4')
+  return { boxes, masks }
+}
+
 export type DecodeSegmentArgs = {
   /**
    * tensorflow runtime:
@@ -40,6 +58,16 @@ export type DecodeSegmentArgs = {
   output_boxes: number[][][]
   /** batched predict result, e.g. 1x160x160x32 */
   output_masks: number[][][][]
+  /**
+   * Format of the model output.
+   *
+   * - `yolo`: boxes [batch, features, boxes] and masks [batch, height, width, channels]
+   * - `end2end`/`yolo26`: reserved for end-to-end segment exports
+   * - `auto`: infer from output shape
+   *
+   * default: `auto`
+   */
+  output_format?: SegmentOutputFormat
   /**
    * Number of boxes to return using non-max suppression.
    * If not provided, all boxes will be returned
@@ -81,6 +109,237 @@ function getMaskShape(args: DecodeSegmentArgs): ImageSize {
   throw new Error('missing mask_shape or input_shape')
 }
 
+function getSegmentBoxesShape(output_boxes: number[][][]) {
+  return `[${output_boxes.length},${output_boxes[0]?.length ?? 0},${output_boxes[0]?.[0]?.length ?? 0}]`
+}
+
+function createAllConfidences(
+  num_classes: number,
+  class_index: number,
+  confidence: number,
+): number[] {
+  let all_confidences = new Array(num_classes).fill(0)
+  if (class_index >= 0 && class_index < num_classes) {
+    all_confidences[class_index] = confidence
+  }
+  return all_confidences
+}
+
+function getEnd2EndSegmentLength(num_channels: number) {
+  return 6 + num_channels
+}
+
+function shouldDecodeEnd2EndSegment(
+  args: DecodeSegmentArgs,
+  num_channels: number,
+): boolean {
+  let format = args.output_format ?? 'auto'
+  if (format === 'yolo26' || format === 'end2end') return true
+  if (format === 'yolo') return false
+
+  let firstBatch = args.output_boxes[0]
+  if (!firstBatch || firstBatch.length === 0) return false
+  return firstBatch[0]?.length === getEnd2EndSegmentLength(num_channels)
+}
+
+function assertSupportedSegmentOutput(
+  args: DecodeSegmentArgs,
+  boxes_length: number,
+) {
+  let format = args.output_format ?? 'auto'
+  if (format === 'yolo') return
+  if (format === 'yolo26' || format === 'end2end') {
+    throw new Error(
+      `end-to-end segment output is not supported yet; got boxes output shape ${getSegmentBoxesShape(args.output_boxes)}. Run npm run inspect:yolo26 -- path/to/model to inspect the real output shapes.`,
+    )
+  }
+  if (args.output_boxes[0]?.length === boxes_length) return
+  throw new Error(
+    `unsupported segment boxes output shape ${getSegmentBoxesShape(args.output_boxes)}; expected [batch,${boxes_length},boxes] for yolo output. Run npm run inspect:yolo26 -- path/to/model if this is an end-to-end export.`,
+  )
+}
+
+/**
+ * tensorflow output: boxes [batch, boxes, 6 + channels] and masks [batch, height, width, channels]
+ * box features:
+ * - x1, y1, x2, y2, confidence, class_index
+ * - mask coefficients
+ *
+ * This is the end-to-end segment output used by YOLO26 segment exports.
+ */
+export async function decodeEnd2EndSegment(
+  args: DecodeSegmentArgs,
+): Promise<SegmentResult> {
+  let { tf, num_classes, maxOutputSize, iouThreshold, scoreThreshold } = args
+  let num_channels = args.num_channels ?? 32
+  let boxes_length = getEnd2EndSegmentLength(num_channels)
+
+  let batches_boxes = args.output_boxes
+  if (batches_boxes[0].length === 0) {
+    return []
+  }
+  if (batches_boxes[0][0].length !== boxes_length) {
+    throw new Error(`boxes_data[batch][box].length must be ${boxes_length}`)
+  }
+
+  let batches_masks = args.output_masks
+  if (batches_boxes.length !== batches_masks.length) {
+    throw new Error('boxes_data and masks_data must have the same length')
+  }
+
+  let result: SegmentResult = []
+  let batch_size = batches_boxes.length
+  for (let batch = 0; batch < batch_size; batch++) {
+    let batch_boxes = batches_boxes[batch]
+    let batch_masks = batches_masks[batch]
+
+    let boxes: [x1: number, y1: number, x2: number, y2: number][] = []
+    let scores: number[] = []
+
+    for (let box_index = 0; box_index < batch_boxes.length; box_index++) {
+      let box = batch_boxes[box_index]
+      boxes.push([box[0], box[1], box[2], box[3]])
+      scores.push(box[4])
+    }
+
+    let box_indices: number[]
+    if (maxOutputSize) {
+      let box_indices_tensor = await tf.image.nonMaxSuppressionAsync(
+        boxes,
+        scores,
+        maxOutputSize,
+        iouThreshold,
+        scoreThreshold,
+      )
+      box_indices = await box_indices_tensor.array()
+      box_indices_tensor.dispose()
+    } else {
+      box_indices = Array.from({ length: batch_boxes.length }, (_, i) => i)
+    }
+
+    let bounding_boxes: BoundingBoxWithMaskCoefficients[] = []
+    for (let box_index of box_indices) {
+      let box = batch_boxes[box_index]
+      let [x1, y1, x2, y2, confidence, raw_class_index] = box
+      let class_index = Math.trunc(raw_class_index)
+      let width = x2 - x1
+      let height = y2 - y1
+      let mask_coefficients: number[] = new Array(num_channels)
+      for (let i = 0; i < num_channels; i++) {
+        mask_coefficients[i] = box[6 + i]
+      }
+      bounding_boxes.push({
+        x: x1 + width / 2,
+        y: y1 + height / 2,
+        width,
+        height,
+        class_index,
+        confidence,
+        all_confidences: createAllConfidences(
+          num_classes,
+          class_index,
+          confidence,
+        ),
+        mask_coefficients,
+      })
+    }
+    result.push({
+      bounding_boxes,
+      masks: batch_masks,
+    })
+  }
+
+  return result
+}
+
+/**
+ * Sync version of `decodeEnd2EndSegment`.
+ */
+export function decodeEnd2EndSegmentSync(args: DecodeSegmentArgs): SegmentResult {
+  let { tf, num_classes, maxOutputSize, iouThreshold, scoreThreshold } = args
+  let num_channels = args.num_channels ?? 32
+  let boxes_length = getEnd2EndSegmentLength(num_channels)
+
+  let batches_boxes = args.output_boxes
+  if (batches_boxes[0].length === 0) {
+    return []
+  }
+  if (batches_boxes[0][0].length !== boxes_length) {
+    throw new Error(`boxes_data[batch][box].length must be ${boxes_length}`)
+  }
+
+  let batches_masks = args.output_masks
+  if (batches_boxes.length !== batches_masks.length) {
+    throw new Error('boxes_data and masks_data must have the same length')
+  }
+
+  let result: SegmentResult = []
+  let batch_size = batches_boxes.length
+  for (let batch = 0; batch < batch_size; batch++) {
+    let batch_boxes = batches_boxes[batch]
+    let batch_masks = batches_masks[batch]
+
+    let boxes: [x1: number, y1: number, x2: number, y2: number][] = []
+    let scores: number[] = []
+
+    for (let box_index = 0; box_index < batch_boxes.length; box_index++) {
+      let box = batch_boxes[box_index]
+      boxes.push([box[0], box[1], box[2], box[3]])
+      scores.push(box[4])
+    }
+
+    let box_indices: number[]
+    if (maxOutputSize) {
+      box_indices = tf.tidy(() =>
+        tf.image
+          .nonMaxSuppression(
+            boxes,
+            scores,
+            maxOutputSize,
+            iouThreshold,
+            scoreThreshold,
+          )
+          .arraySync(),
+      )
+    } else {
+      box_indices = Array.from({ length: batch_boxes.length }, (_, i) => i)
+    }
+
+    let bounding_boxes: BoundingBoxWithMaskCoefficients[] = []
+    for (let box_index of box_indices) {
+      let box = batch_boxes[box_index]
+      let [x1, y1, x2, y2, confidence, raw_class_index] = box
+      let class_index = Math.trunc(raw_class_index)
+      let width = x2 - x1
+      let height = y2 - y1
+      let mask_coefficients: number[] = new Array(num_channels)
+      for (let i = 0; i < num_channels; i++) {
+        mask_coefficients[i] = box[6 + i]
+      }
+      bounding_boxes.push({
+        x: x1 + width / 2,
+        y: y1 + height / 2,
+        width,
+        height,
+        class_index,
+        confidence,
+        all_confidences: createAllConfidences(
+          num_classes,
+          class_index,
+          confidence,
+        ),
+        mask_coefficients,
+      })
+    }
+    result.push({
+      bounding_boxes,
+      masks: batch_masks,
+    })
+  }
+
+  return result
+}
+
 /**
  * tensorflow output: boxes [batch, features, channel] and masks [batch, height, width, channel]
  *
@@ -104,9 +363,14 @@ export async function decodeSegment(
   let { tf, num_classes, maxOutputSize, iouThreshold, scoreThreshold } = args
   let num_channels = args.num_channels ?? 32
 
+  if (shouldDecodeEnd2EndSegment(args, num_channels)) {
+    return decodeEnd2EndSegment(args)
+  }
+
   let { width: mask_width, height: mask_height } = getMaskShape(args)
 
   let boxes_length = 4 + num_classes + num_channels
+  assertSupportedSegmentOutput(args, boxes_length)
 
   // e.g. 1x116x8400
   let batches_boxes = args.output_boxes
@@ -235,9 +499,14 @@ export function decodeSegmentSync(args: DecodeSegmentArgs): SegmentResult {
   let { tf, num_classes, maxOutputSize, iouThreshold, scoreThreshold } = args
   let num_channels = args.num_channels ?? 32
 
+  if (shouldDecodeEnd2EndSegment(args, num_channels)) {
+    return decodeEnd2EndSegmentSync(args)
+  }
+
   let { width: mask_width, height: mask_height } = getMaskShape(args)
 
   let boxes_length = 4 + num_classes + num_channels
+  assertSupportedSegmentOutput(args, boxes_length)
 
   // e.g. 1x116x8400
   let batches_boxes = args.output_boxes

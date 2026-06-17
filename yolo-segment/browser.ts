@@ -3,14 +3,19 @@ import {
   decodeSegment,
   DecodeSegmentArgs,
   decodeSegmentSync,
+  getSegmentOutputTensors,
   SegmentResult,
 } from './common'
 import { ImageInput } from '../tensorflow/browser'
 import { getModelInputShape, preprocessInput } from '../tensorflow/common'
 export * from './common'
 
+export type DetectSegmentModel = tf.InferenceModel & {
+  segment_output_format?: DecodeSegmentArgs['output_format']
+}
+
 export type DetectSegmentArgs = {
-  model: tf.InferenceModel
+  model: DetectSegmentModel
   /** used for image resize when necessary, auto inferred from model shape */
   input_shape?: {
     width: number
@@ -37,6 +42,7 @@ export async function detectSegment(
   args: DetectSegmentArgs,
 ): Promise<SegmentResult> {
   let { model } = args
+  let output_format = args.output_format ?? model.segment_output_format
 
   let input_shape = args.input_shape || getModelInputShape(model)
 
@@ -47,18 +53,24 @@ export async function detectSegment(
     return model.predict(input, {}) as tf.Tensor[]
   })
 
-  let output_boxes = result[0].array().then(data => {
-    result[0].dispose()
+  let output = getSegmentOutputTensors(result)
+  let output_boxes = output.boxes.array().then(data => {
+    output.boxes.dispose()
     return data as number[][][]
   })
 
-  let output_masks = result[1].array().then(data => {
-    result[1].dispose()
+  let output_masks = output.masks.array().then(data => {
+    output.masks.dispose()
     return data as number[][][][]
   })
 
+  result
+    .filter(tensor => tensor !== output.boxes && tensor !== output.masks)
+    .forEach(tensor => tensor.dispose())
+
   return await decodeSegment({
     ...args,
+    output_format,
     input_shape,
     output_boxes: await output_boxes,
     output_masks: await output_masks,
@@ -70,6 +82,7 @@ export async function detectSegment(
  */
 export function detectSegmentSync(args: DetectSegmentArgs): SegmentResult {
   let { model } = args
+  let output_format = args.output_format ?? model.segment_output_format
 
   let input_shape = args.input_shape || getModelInputShape(model)
 
@@ -78,8 +91,10 @@ export function detectSegmentSync(args: DetectSegmentArgs): SegmentResult {
       'tensor' in args ? args.tensor : tf.browser.fromPixels(args.pixels)
     input = preprocessInput(input, input_shape)
     let result = model.predict(input, {}) as tf.Tensor[]
-    let output_boxes = result[0].arraySync() as number[][][]
-    let output_masks = result[1].arraySync() as number[][][][]
+    let output = getSegmentOutputTensors(result)
+    let output_boxes = output.boxes.arraySync() as number[][][]
+    let output_masks = output.masks.arraySync() as number[][][][]
+    result.forEach(tensor => tensor.dispose())
     return {
       output_boxes,
       output_masks,
@@ -88,6 +103,7 @@ export function detectSegmentSync(args: DetectSegmentArgs): SegmentResult {
 
   return decodeSegmentSync({
     ...args,
+    output_format,
     input_shape,
     ...output,
   })

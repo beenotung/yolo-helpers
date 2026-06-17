@@ -1,11 +1,21 @@
 import * as tf from '@tensorflow/tfjs'
-import { decodeBox, DecodeBoxArgs, decodeBoxSync, BoxResult } from './common'
+import {
+  decodeBox,
+  DecodeBoxArgs,
+  decodeBoxSync,
+  BoxResult,
+  getBoxOutputTensor,
+} from './common'
 import { ImageInput } from '../tensorflow/browser'
 import { getModelInputShape, preprocessInput } from '../tensorflow/common'
 export * from './common'
 
+export type DetectBoxModel = tf.InferenceModel & {
+  box_output_format?: DecodeBoxArgs['output_format']
+}
+
 export type DetectBoxArgs = {
-  model: tf.InferenceModel
+  model: DetectBoxModel
   /** used for image resize when necessary, auto inferred from model shape */
   input_shape?: {
     width: number
@@ -26,6 +36,7 @@ export type DetectBoxArgs = {
  */
 export async function detectBox(args: DetectBoxArgs): Promise<BoxResult> {
   let { model } = args
+  let output_format = args.output_format ?? model.box_output_format
 
   let input_shape = args.input_shape || getModelInputShape(model)
 
@@ -33,14 +44,20 @@ export async function detectBox(args: DetectBoxArgs): Promise<BoxResult> {
     let input =
       'tensor' in args ? args.tensor : tf.browser.fromPixels(args.pixels)
     input = preprocessInput(input, input_shape)
-    return model.predict(input, {}) as tf.Tensor
+    return model.predict(input, {}) as tf.Tensor | tf.Tensor[]
   })
 
-  let output = (await result.array()) as number[][][]
-  result.dispose()
+  let output_tensor = getBoxOutputTensor(result)
+  let output = (await output_tensor.array()) as number[][][]
+  if (Array.isArray(result)) {
+    result.forEach(tensor => tensor.dispose())
+  } else {
+    result.dispose()
+  }
 
   return await decodeBox({
     ...args,
+    output_format,
     output,
   })
 }
@@ -50,6 +67,7 @@ export async function detectBox(args: DetectBoxArgs): Promise<BoxResult> {
  */
 export function detectBoxSync(args: DetectBoxArgs): BoxResult {
   let { model } = args
+  let output_format = args.output_format ?? model.box_output_format
 
   let input_shape = args.input_shape || getModelInputShape(model)
 
@@ -57,12 +75,20 @@ export function detectBoxSync(args: DetectBoxArgs): BoxResult {
     let input =
       'tensor' in args ? args.tensor : tf.browser.fromPixels(args.pixels)
     input = preprocessInput(input, input_shape)
-    let result = model.predict(input, {}) as tf.Tensor
-    return result.arraySync() as number[][][]
+    let result = model.predict(input, {}) as tf.Tensor | tf.Tensor[]
+    let output_tensor = getBoxOutputTensor(result)
+    let output = output_tensor.arraySync() as number[][][]
+    if (Array.isArray(result)) {
+      result.forEach(tensor => tensor.dispose())
+    } else {
+      result.dispose()
+    }
+    return output
   })
 
   return decodeBoxSync({
     ...args,
+    output_format,
     output,
   })
 }

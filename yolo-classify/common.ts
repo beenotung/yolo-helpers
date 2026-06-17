@@ -1,3 +1,5 @@
+import type * as tf_type from '@tensorflow/tfjs'
+
 export type ImageResult = {
   /** class index with highest confidence */
   class_index: number
@@ -14,11 +16,33 @@ export type ImageResult = {
  * */
 export type ClassifyResult = ImageResult[]
 
+export type ClassifyOutputFormat = 'auto' | 'yolo'
+
+export type ClassifyOutputTensor = tf_type.Tensor | tf_type.Tensor[]
+
+export function getClassifyOutputTensor(
+  output: ClassifyOutputTensor,
+): tf_type.Tensor {
+  if (!Array.isArray(output)) return output
+  let firstRank2Tensor = output.find(tensor => tensor.shape.length === 2)
+  if (firstRank2Tensor) return firstRank2Tensor
+  throw new Error('classify output tensor must be rank 2')
+}
+
 export type DecodeClassifyArgs = {
   /** e.g. `1` for single class */
   num_classes: number
   /** batched predict result, e.g. 1x80 */
   output: number[][]
+  /**
+   * Format of the model output.
+   *
+   * - `yolo`: [batch, classes], e.g. 1x1000
+   * - `auto`: infer from output shape
+   *
+   * default: `auto`
+   */
+  output_format?: ClassifyOutputFormat
 }
 
 /**

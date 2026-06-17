@@ -12,3 +12,10 @@ saved_models/
 bundle.js
 demo.jpg
 example.png
+.yolo26
+yolo26/models/
+yolo26/*.pt
+yolo26/*.onnx
+yolo26/*.pb
+yolo26/*.tflite
+yolo26/images/
